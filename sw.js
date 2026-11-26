@@ -1,4 +1,4 @@
-const CACHE_NAME = 'snack-soju-pwa-v8';
+const CACHE_NAME = 'snack-soju-pwa-v9';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -25,6 +25,7 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  if (!event.request.url.startsWith(self.location.origin)) return;
   event.respondWith(
     fetch(event.request)
       .then(response => {
