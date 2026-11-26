@@ -1,0 +1,45 @@
+{
+  "id": "./",
+  "name": "간식 예산 · 잔여 소주 이월 관리",
+  "short_name": "간식·소주",
+  "description": "매월 간식 예산과 잔여 소주(월 5병)를 이월 관리하고 바로 차감하는 모바일 가계부 앱",
+  "lang": "ko",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F6F8",
+  "theme_color": "#3182F6",
+  "categories": [
+    "finance",
+    "lifestyle",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

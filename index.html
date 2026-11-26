@@ -1,0 +1,2036 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="theme-color" content="#F4F6F8" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+  <link rel="apple-touch-icon" sizes="192x192" href="./icons/icon-192.png" />
+  <title>간식 예산 · 잔여 소주 이월 관리</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    :root {
+      --bg-page: #F4F6F8;
+      --bg-card: #FFFFFF;
+      --text-primary: #191F28;
+      --text-secondary: #6B7684;
+      --accent-blue: #3182F6;
+      --accent-blue-dark: #1B64DA;
+      --accent-soju: #059669;
+      --accent-soju-dark: #047857;
+      --positive: #059669;
+      --negative: #E11D48;
+    }
+
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 0;
+      overscroll-behavior-y: none;
+    }
+
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .safe-bottom {
+      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    }
+
+    .sheet-backdrop {
+      transition: opacity 0.2s ease;
+    }
+
+    .sheet-panel {
+      transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Toggle Switch */
+    .toggle-track {
+      transition: background-color 0.2s ease;
+    }
+    .toggle-thumb {
+      transition: transform 0.2s ease;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#F4F6F8] text-[#191F28] antialiased">
+
+  <!-- App Container (Mobile-First Shell) -->
+  <div id="app" class="max-w-md mx-auto min-h-screen bg-[#F4F6F8] flex flex-col relative pb-24">
+
+    <!-- Top Header -->
+    <header class="sticky top-0 z-20 bg-[#F4F6F8]/95 backdrop-blur-md px-4 pt-3.5 pb-3 border-b border-slate-200/70 space-y-2.5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div id="header-icon-box" class="w-8 h-8 rounded-xl bg-[#3182F6] text-white flex items-center justify-center shadow-sm transition-colors">
+            <span id="header-emoji" class="text-base leading-none">🍪</span>
+          </div>
+          <div>
+            <h1 id="header-title" class="text-[15px] font-bold tracking-tight text-[#191F28] leading-tight">간식 예산</h1>
+            <p id="header-rollover-status" class="text-[11px] font-medium text-emerald-600 leading-tight">이월 자동 적용 중</p>
+          </div>
+        </div>
+
+        <!-- Month Navigator -->
+        <div class="flex items-center gap-1 bg-white rounded-full px-1.5 py-1 shadow-sm border border-slate-200/80">
+          <button id="btn-prev-month" type="button" aria-label="이전 달" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          </button>
+          <button id="btn-current-month" type="button" title="오늘 달로 이동" class="px-2 py-0.5 text-[13px] font-bold text-[#191F28] tabular-nums hover:text-[#3182F6] transition">
+            2026년 11월
+          </button>
+          <button id="btn-next-month" type="button" aria-label="다음 달" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Mode Switcher: 간식 예산 <-> 잔여 소주 -->
+      <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-200/75 rounded-2xl">
+        <button id="btn-mode-snack" type="button" data-mode="snack" class="mode-switch-btn py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-white text-[#3182F6] shadow-sm transition">
+          <span>🍪</span>
+          <span>간식 예산</span>
+        </button>
+        <button id="btn-mode-soju" type="button" data-mode="soju" class="mode-switch-btn py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-700 transition">
+          <span>🍶</span>
+          <span>잔여 소주</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Views -->
+    <main class="flex-1 px-4 pt-4 space-y-4">
+
+      <!-- VIEW 1: HOME -->
+      <section id="view-home" class="space-y-4">
+
+        <!-- Hero Card (Shared structure for Snack Budget & Remaining Soju) -->
+        <div class="bg-white rounded-3xl p-5 shadow-[0_2px_12px_rgba(15,23,42,0.04)] border border-slate-100">
+          <div class="flex items-start justify-between gap-2 mb-1">
+            <div>
+              <span id="hero-subtitle" class="text-xs font-semibold text-slate-500">이번 달 남은 간식 예산</span>
+              <div class="flex items-baseline gap-1.5 mt-0.5">
+                <span id="hero-remaining" class="text-[30px] font-extrabold tracking-tight tabular-nums text-[#191F28]">10,000원</span>
+              </div>
+            </div>
+            <span id="hero-status-badge" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#3182F6]">
+              여유
+            </span>
+          </div>
+
+          <!-- Visual Soju Bottles Strip (Visible only in Soju Mode) -->
+          <div id="soju-bottle-strip" class="hidden mt-3 flex items-center flex-wrap gap-1.5">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="mt-4">
+            <div class="flex items-center justify-between text-xs mb-1.5">
+              <span id="hero-usage-label" class="font-medium text-slate-500">사용률 0%</span>
+              <span id="hero-total-available" class="font-semibold text-slate-700 tabular-nums">총 예산 10,000원</span>
+            </div>
+            <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+              <div id="hero-progress-bar" class="h-full bg-[#3182F6] rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- 3-Column Breakdown -->
+          <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-100">
+            <button id="btn-quick-budget" type="button" class="text-left p-2.5 rounded-2xl bg-slate-50 hover:bg-slate-100 active:scale-[0.98] transition">
+              <div class="flex items-center justify-between text-[11px] font-medium text-slate-500">
+                <span id="stat-base-label">월 기본</span>
+                <i data-lucide="pencil" class="w-3 h-3 text-slate-400"></i>
+              </div>
+              <div id="stat-base-budget" class="text-[13px] font-bold text-[#191F28] mt-1 tabular-nums truncate">10,000원</div>
+            </button>
+
+            <div class="p-2.5 rounded-2xl bg-slate-50">
+              <div class="text-[11px] font-medium text-slate-500">전월 이월</div>
+              <div id="stat-carry-in" class="text-[13px] font-bold text-emerald-600 mt-1 tabular-nums truncate">0원</div>
+            </div>
+
+            <div class="p-2.5 rounded-2xl bg-slate-50">
+              <div id="stat-spent-label" class="text-[11px] font-medium text-slate-500">이번 달 지출</div>
+              <div id="stat-spent" class="text-[13px] font-bold text-rose-600 mt-1 tabular-nums truncate">0원</div>
+            </div>
+          </div>
+
+          <!-- Next Month Rollover Preview -->
+          <div id="next-carry-box" class="mt-3 px-3 py-2.5 rounded-2xl bg-blue-50/70 flex items-center justify-between text-xs">
+            <span class="font-medium text-slate-600 flex items-center gap-1.5">
+              <i data-lucide="arrow-right-circle" class="w-3.5 h-3.5 text-[#3182F6]"></i>
+              <span id="stat-next-carry-label">다음 달 예상 이월액</span>
+            </span>
+            <span id="stat-next-carry" class="font-bold text-[#3182F6] tabular-nums">+10,000원</span>
+          </div>
+        </div>
+
+        <!-- Snack Action Button (Visible in Snack Mode) -->
+        <div id="snack-action-area">
+          <button id="btn-open-add-expense" type="button" class="w-full py-3.5 px-4 rounded-2xl bg-[#3182F6] hover:bg-[#1B64DA] active:scale-[0.99] text-white font-bold text-[15px] shadow-sm shadow-blue-500/20 flex items-center justify-center gap-2 transition">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+            간식 지출 차감하기
+          </button>
+        </div>
+
+        <!-- Soju Action Buttons (Visible in Soju Mode) -->
+        <div id="soju-action-area" class="hidden flex gap-2">
+          <button id="btn-drink-one-soju" type="button" class="flex-1 py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-[15px] shadow-sm shadow-emerald-600/20 flex items-center justify-center gap-2 transition">
+            <span class="text-lg leading-none">🍶</span>
+            <span>소주 1병 차감 (-1병)</span>
+          </button>
+          <button id="btn-open-add-soju" type="button" class="px-4 py-3.5 rounded-2xl bg-white hover:bg-slate-50 active:scale-[0.98] text-emerald-700 font-bold text-xs border border-emerald-200 shadow-sm flex items-center justify-center gap-1 transition whitespace-nowrap">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+            직접 입력
+          </button>
+        </div>
+
+        <!-- Category Filter Strip (Snack Mode) -->
+        <div id="category-filter-bar" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+          <!-- Populated dynamically -->
+        </div>
+
+        <!-- History Section -->
+        <div class="space-y-2.5">
+          <div class="flex items-center justify-between px-1">
+            <h2 id="history-section-title" class="text-sm font-bold text-[#191F28]">간식 지출 내역</h2>
+            <span id="expense-count-label" class="text-xs font-medium text-slate-500">0건</span>
+          </div>
+
+          <div id="expense-list-container" class="space-y-3">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: ANALYTICS -->
+      <section id="view-analytics" class="hidden space-y-4">
+
+        <!-- 6-Month Rollover & Usage Chart -->
+        <div class="bg-white rounded-3xl p-5 shadow-[0_2px_12px_rgba(15,23,42,0.04)] border border-slate-100">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h2 id="analytics-trend-title" class="text-sm font-bold text-[#191F28]">최근 6개월 간식 예산 · 지출 흐름</h2>
+              <p id="analytics-trend-sub" class="text-xs text-slate-500 mt-0.5">이월 포함 총 예산 대비 실제 지출</p>
+            </div>
+          </div>
+          <div class="relative h-56">
+            <canvas id="chart-monthly"></canvas>
+          </div>
+        </div>
+
+        <!-- Category Breakdown Card (Snack Mode) -->
+        <div id="analytics-cat-card" class="bg-white rounded-3xl p-5 shadow-[0_2px_12px_rgba(15,23,42,0.04)] border border-slate-100">
+          <h2 id="analytics-cat-title" class="text-sm font-bold text-[#191F28] mb-3">카테고리별 지출</h2>
+          <div id="analytics-cat-empty" class="py-8 text-center text-xs text-slate-400 hidden">
+            이 달에 기록된 지출이 없습니다.
+          </div>
+          <div id="analytics-cat-content" class="space-y-4">
+            <div class="relative h-48">
+              <canvas id="chart-category"></canvas>
+            </div>
+            <div id="analytics-cat-list" class="space-y-2 pt-2 border-t border-slate-100">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Soju Drinking Stats Card (Soju Mode) -->
+        <div id="analytics-soju-card" class="hidden bg-white rounded-3xl p-5 shadow-[0_2px_12px_rgba(15,23,42,0.04)] border border-slate-100">
+          <h2 id="analytics-soju-title" class="text-sm font-bold text-[#191F28] mb-3">이번 달 음주 요약</h2>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="p-3 rounded-2xl bg-emerald-50/70">
+              <div class="text-[11px] font-medium text-slate-500">음주 횟수</div>
+              <div id="soju-stat-sessions" class="text-base font-extrabold text-emerald-700 mt-1 tabular-nums">0회</div>
+            </div>
+            <div class="p-3 rounded-2xl bg-slate-50">
+              <div class="text-[11px] font-medium text-slate-500">총 음주량</div>
+              <div id="soju-stat-total" class="text-base font-extrabold text-[#191F28] mt-1 tabular-nums">0병</div>
+            </div>
+            <div class="p-3 rounded-2xl bg-slate-50">
+              <div class="text-[11px] font-medium text-slate-500">1회 평균</div>
+              <div id="soju-stat-avg" class="text-base font-extrabold text-[#191F28] mt-1 tabular-nums">0병</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Monthly Rollover Ledger -->
+        <div class="bg-white rounded-3xl p-5 shadow-[0_2px_12px_rgba(15,23,42,0.04)] border border-slate-100">
+          <h2 id="ledger-title" class="text-sm font-bold text-[#191F28] mb-3">월별 이월 정산표</h2>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-right tabular-nums">
+              <thead>
+                <tr class="text-slate-400 border-b border-slate-100">
+                  <th class="text-left py-2 font-medium">월</th>
+                  <th class="py-2 font-medium">기본</th>
+                  <th class="py-2 font-medium">이월</th>
+                  <th id="ledger-col-used" class="py-2 font-medium">지출</th>
+                  <th class="py-2 font-medium">잔여</th>
+                </tr>
+              </thead>
+              <tbody id="rollover-ledger-body" class="divide-y divide-slate-50">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 3: SETTINGS -->
+      <section id="view-settings" class="hidden space-y-4">
+
+        <!-- Budget / Quota Settings -->
+        <div class="bg-white rounded-3xl p-5 shadow-[0_2px_12px_rgba(15,23,42,0.04)] border border-slate-100 space-y-4">
+          <h2 id="settings-primary-title" class="text-sm font-bold text-[#191F28]">🍪 간식 월 예산 설정</h2>
+
+          <!-- Snack Budget Input -->
+          <div id="settings-snack-block">
+            <label for="setting-monthly-budget" class="block text-xs font-semibold text-slate-600 mb-1.5">매월 기본 간식 예산 (원)</label>
+            <div class="flex gap-2">
+              <input id="setting-monthly-budget" type="number" min="0" step="1000" inputmode="numeric" class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold tabular-nums focus:outline-none focus:ring-2 focus:ring-[#3182F6] focus:bg-white" />
+              <button id="btn-save-budget" type="button" class="px-4 py-2.5 rounded-xl bg-[#3182F6] text-white text-xs font-bold hover:bg-[#1B64DA] active:scale-95 transition">저장</button>
+            </div>
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              <button type="button" data-preset-budget="10000" class="preset-budget-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 transition">1만</button>
+              <button type="button" data-preset-budget="20000" class="preset-budget-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 transition">2만</button>
+              <button type="button" data-preset-budget="30000" class="preset-budget-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 transition">3만</button>
+              <button type="button" data-preset-budget="50000" class="preset-budget-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 transition">5만</button>
+              <button type="button" data-preset-budget="100000" class="preset-budget-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 transition">10만</button>
+            </div>
+          </div>
+
+          <!-- Soju Quota Input -->
+          <div id="settings-soju-block" class="hidden">
+            <label for="setting-soju-quota" class="block text-xs font-semibold text-slate-600 mb-1.5">매월 기본 소주 허용량 (병)</label>
+            <div class="flex gap-2">
+              <input id="setting-soju-quota" type="number" min="0" step="0.5" inputmode="decimal" class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white" />
+              <button id="btn-save-soju-quota" type="button" class="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 active:scale-95 transition">저장</button>
+            </div>
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              <button type="button" data-preset-soju="3" class="preset-soju-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 transition">3병</button>
+              <button type="button" data-preset-soju="5" class="preset-soju-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 transition">5병</button>
+              <button type="button" data-preset-soju="8" class="preset-soju-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 transition">8병</button>
+              <button type="button" data-preset-soju="10" class="preset-soju-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-medium text-slate-700 transition">10병</button>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-slate-100">
+            <label for="setting-start-month" class="block text-xs font-semibold text-slate-600 mb-1.5">이월 누적 시작 월</label>
+            <input id="setting-start-month" type="month" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#3182F6] focus:bg-white" />
+            <p class="text-[11px] text-slate-400 mt-1">이 월부터 남은 잔여분이 다음 달로 누적 계산됩니다.</p>
+          </div>
+        </div>
+
+        <!-- Rollover Rules -->
+        <div class="bg-white rounded-3xl p-5 shadow-[0_2px_12px_rgba(15,23,42,0.04)] border border-slate-100 space-y-4">
+          <h2 id="settings-rollover-title" class="text-sm font-bold text-[#191F28]">이월 규칙</h2>
+
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div id="toggle-rollover-label" class="text-sm font-semibold text-[#191F28]">남은 예산 다음 달 이월</div>
+              <div id="toggle-rollover-desc" class="text-xs text-slate-500">끄면 매달 기본 예산으로 초기화됩니다</div>
+            </div>
+            <button id="toggle-rollover" type="button" role="switch" aria-checked="true" class="toggle-track relative w-12 h-7 rounded-full bg-[#3182F6] p-1 flex-shrink-0">
+              <span class="toggle-thumb block w-5 h-5 rounded-full bg-white shadow transform translate-x-5"></span>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
+            <div>
+              <div id="toggle-deficit-label" class="text-sm font-semibold text-[#191F28]">초과 지출(마이너스)도 이월</div>
+              <div id="toggle-deficit-desc" class="text-xs text-slate-500">예산을 넘겨 쓰면 다음 달 예산에서 차감</div>
+            </div>
+            <button id="toggle-deficit" type="button" role="switch" aria-checked="true" class="toggle-track relative w-12 h-7 rounded-full bg-[#3182F6] p-1 flex-shrink-0">
+              <span class="toggle-thumb block w-5 h-5 rounded-full bg-white shadow transform translate-x-5"></span>
+            </button>
+          </div>
+
+          <div class="pt-3 border-t border-slate-100">
+            <label id="setting-cap-label" for="setting-rollover-cap" class="block text-xs font-semibold text-slate-600 mb-1.5">최대 이월 한도 (원, 0이면 무제한)</label>
+            <div class="flex gap-2">
+              <input id="setting-rollover-cap" type="number" min="0" step="1000" inputmode="numeric" class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold tabular-nums focus:outline-none focus:ring-2 focus:ring-[#3182F6] focus:bg-white" />
+              <button id="btn-save-cap" type="button" class="px-4 py-2.5 rounded-xl bg-slate-800 text-white text-xs font-bold hover:bg-slate-700 active:scale-95 transition">적용</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data Backup & Demo -->
+        <div class="bg-white rounded-3xl p-5 shadow-[0_2px_12px_rgba(15,23,42,0.04)] border border-slate-100 space-y-2.5">
+          <h2 class="text-sm font-bold text-[#191F28] mb-2">데이터 관리 (간식 + 소주 통합)</h2>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button id="btn-export-json" type="button" class="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              JSON 백업 저장
+            </button>
+            <label class="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 flex items-center justify-center gap-1.5 cursor-pointer transition">
+              <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+              백업 불러오기
+              <input id="input-import-json" type="file" accept=".json,application/json" class="hidden" />
+            </label>
+          </div>
+
+          <button id="btn-reset-all" type="button" class="w-full py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-xs font-semibold text-rose-600 flex items-center justify-center gap-1.5 transition">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            모든 기록 초기화
+          </button>
+        </div>
+
+        <!-- Mobile Home Screen Tip -->
+        <div class="bg-slate-100/80 rounded-2xl p-4 text-xs text-slate-600 space-y-1">
+          <div class="font-bold text-slate-700 flex items-center gap-1.5">
+            <i data-lucide="smartphone" class="w-4 h-4 text-[#3182F6]"></i>
+            핸드폰 앱처럼 쓰는 방법
+          </div>
+          <p class="leading-relaxed">
+            이 파일을 휴대폰 브라우저(Safari·Chrome)에서 열거나 무료 정적 호스팅(GitHub Pages 등)에 올린 뒤 <strong>홈 화면에 추가</strong>하면 일반 앱처럼 바로 실행할 수 있고, 간식·소주 기록이 모두 기기에 자동 저장됩니다.
+          </p>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/80 safe-bottom">
+      <div class="max-w-md mx-auto grid grid-cols-3 h-16">
+        <button type="button" data-tab="home" class="nav-tab flex flex-col items-center justify-center gap-1 text-[#3182F6] font-semibold">
+          <i data-lucide="home" class="w-5 h-5"></i>
+          <span class="text-[11px]">홈</span>
+        </button>
+        <button type="button" data-tab="analytics" class="nav-tab flex flex-col items-center justify-center gap-1 text-slate-400 font-medium">
+          <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+          <span class="text-[11px]">분석</span>
+        </button>
+        <button type="button" data-tab="settings" class="nav-tab flex flex-col items-center justify-center gap-1 text-slate-400 font-medium">
+          <i data-lucide="settings" class="w-5 h-5"></i>
+          <span class="text-[11px]">설정</span>
+        </button>
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- MODAL 1: Add / Edit Snack Expense Bottom Sheet -->
+  <div id="expense-modal" class="fixed inset-0 z-50 hidden">
+    <div id="expense-modal-backdrop" class="sheet-backdrop absolute inset-0 bg-slate-900/40 backdrop-blur-[1px]"></div>
+    <div class="absolute inset-x-0 bottom-0 max-w-md mx-auto bg-white rounded-t-3xl p-5 pb-7 shadow-2xl sheet-panel max-h-[90vh] overflow-y-auto">
+      <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="expense-modal-title" class="text-base font-bold text-[#191F28]">간식 지출 기록하기</h3>
+        <button id="btn-close-expense-modal" type="button" aria-label="닫기" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="expense-form" class="space-y-4">
+        <input id="expense-id" type="hidden" value="" />
+
+        <!-- Amount -->
+        <div>
+          <label for="expense-amount" class="block text-xs font-semibold text-slate-500 mb-1.5">사용 금액 (원)</label>
+          <div class="relative">
+            <input id="expense-amount" type="number" min="1" step="1" required inputmode="numeric" placeholder="0" class="w-full px-4 py-3 pr-10 rounded-2xl bg-slate-50 border border-slate-200 text-2xl font-extrabold tabular-nums text-[#191F28] focus:outline-none focus:ring-2 focus:ring-[#3182F6] focus:bg-white" />
+            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">원</span>
+          </div>
+          <div class="flex gap-1.5 mt-2">
+            <button type="button" data-add-amount="1000" class="quick-amt-btn flex-1 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition">+1천</button>
+            <button type="button" data-add-amount="3000" class="quick-amt-btn flex-1 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition">+3천</button>
+            <button type="button" data-add-amount="5000" class="quick-amt-btn flex-1 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition">+5천</button>
+            <button type="button" data-add-amount="10000" class="quick-amt-btn flex-1 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition">+1만</button>
+          </div>
+        </div>
+
+        <!-- Category Chips -->
+        <div>
+          <span class="block text-xs font-semibold text-slate-500 mb-1.5">간식 종류</span>
+          <div id="modal-category-grid" class="grid grid-cols-4 gap-2">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Memo & Date -->
+        <div class="grid grid-cols-5 gap-2">
+          <div class="col-span-3">
+            <label for="expense-memo" class="block text-xs font-semibold text-slate-500 mb-1.5">내용 (선택)</label>
+            <input id="expense-memo" type="text" maxlength="40" placeholder="예: 아이스 아메리카노" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#3182F6] focus:bg-white" />
+          </div>
+          <div class="col-span-2">
+            <label for="expense-date" class="block text-xs font-semibold text-slate-500 mb-1.5">날짜</label>
+            <input id="expense-date" type="date" required class="w-full px-2.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#3182F6] focus:bg-white" />
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex gap-2 pt-2">
+          <button id="btn-delete-expense" type="button" class="hidden px-4 py-3.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-sm transition">
+            삭제
+          </button>
+          <button type="submit" class="flex-1 py-3.5 rounded-2xl bg-[#3182F6] hover:bg-[#1B64DA] text-white font-bold text-sm shadow-sm transition">
+            저장하고 간식 예산 차감
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 1B: Add / Edit Soju Log Bottom Sheet -->
+  <div id="soju-modal" class="fixed inset-0 z-50 hidden">
+    <div id="soju-modal-backdrop" class="sheet-backdrop absolute inset-0 bg-slate-900/40 backdrop-blur-[1px]"></div>
+    <div class="absolute inset-x-0 bottom-0 max-w-md mx-auto bg-white rounded-t-3xl p-5 pb-7 shadow-2xl sheet-panel max-h-[90vh] overflow-y-auto">
+      <div class="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4"></div>
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="soju-modal-title" class="text-base font-bold text-[#191F28]">소주 음주 기록</h3>
+        <button id="btn-close-soju-modal" type="button" aria-label="닫기" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="soju-form" class="space-y-4">
+        <input id="soju-log-id" type="hidden" value="" />
+
+        <!-- Bottles -->
+        <div>
+          <label for="soju-bottles" class="block text-xs font-semibold text-slate-500 mb-1.5">마신 병 수 (병)</label>
+          <div class="relative">
+            <input id="soju-bottles" type="number" min="0.5" step="0.5" required inputmode="decimal" value="1" class="w-full px-4 py-3 pr-10 rounded-2xl bg-slate-50 border border-slate-200 text-2xl font-extrabold tabular-nums text-[#191F28] focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white" />
+            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">병</span>
+          </div>
+          <div class="flex gap-1.5 mt-2">
+            <button type="button" data-set-bottles="0.5" class="quick-bottle-btn flex-1 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-xs font-bold text-emerald-700 transition">0.5병</button>
+            <button type="button" data-set-bottles="1" class="quick-bottle-btn flex-1 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-xs font-bold text-emerald-700 transition">1병</button>
+            <button type="button" data-set-bottles="1.5" class="quick-bottle-btn flex-1 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-xs font-bold text-emerald-700 transition">1.5병</button>
+            <button type="button" data-set-bottles="2" class="quick-bottle-btn flex-1 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-xs font-bold text-emerald-700 transition">2병</button>
+          </div>
+        </div>
+
+        <!-- Memo & Date -->
+        <div class="grid grid-cols-5 gap-2">
+          <div class="col-span-3">
+            <label for="soju-memo" class="block text-xs font-semibold text-slate-500 mb-1.5">메모 (선택)</label>
+            <input id="soju-memo" type="text" maxlength="40" placeholder="예: 삼겹살에 한 병" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white" />
+          </div>
+          <div class="col-span-2">
+            <label for="soju-date" class="block text-xs font-semibold text-slate-500 mb-1.5">날짜</label>
+            <input id="soju-date" type="date" required class="w-full px-2.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white" />
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex gap-2 pt-2">
+          <button id="btn-delete-soju" type="button" class="hidden px-4 py-3.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-sm transition">
+            삭제
+          </button>
+          <button type="submit" class="flex-1 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-sm transition">
+            저장하고 잔여 소주 차감
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Quick Budget / Quota Edit Modal -->
+  <div id="budget-modal" class="fixed inset-0 z-50 hidden">
+    <div id="budget-modal-backdrop" class="sheet-backdrop absolute inset-0 bg-slate-900/40 backdrop-blur-[1px]"></div>
+    <div class="absolute inset-x-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto bg-white rounded-3xl p-5 shadow-2xl">
+      <h3 id="budget-modal-title" class="text-base font-bold text-[#191F28] mb-1">월 예산 수정</h3>
+      <p id="budget-modal-desc" class="text-xs text-slate-500 mb-4">기본 월 예산을 변경하거나 이 달만 다르게 설정할 수 있습니다.</p>
+
+      <div class="relative">
+        <input id="budget-modal-input" type="number" min="0" step="1000" inputmode="decimal" class="w-full px-4 py-3 pr-10 rounded-2xl bg-slate-50 border border-slate-200 text-xl font-extrabold tabular-nums focus:outline-none focus:ring-2 focus:ring-[#3182F6] focus:bg-white" />
+        <span id="budget-modal-unit" class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">원</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 mt-4">
+        <button id="btn-budget-this-month" type="button" class="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition">
+          이 달만 적용
+        </button>
+        <button id="btn-budget-all-months" type="button" class="py-2.5 px-3 rounded-xl bg-[#3182F6] hover:bg-[#1B64DA] text-xs font-bold text-white transition">
+          매월 기본값 변경
+        </button>
+      </div>
+      <button id="btn-budget-cancel" type="button" class="w-full mt-2 py-2 text-xs font-medium text-slate-400 hover:text-slate-600">
+        취소
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL 3: Generic Confirmation Modal -->
+  <div id="confirm-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px]"></div>
+    <div class="absolute inset-x-4 top-1/2 -translate-y-1/2 max-w-xs mx-auto bg-white rounded-3xl p-5 shadow-2xl text-center">
+      <h3 id="confirm-title" class="text-base font-bold text-[#191F28] mb-1.5">확인</h3>
+      <p id="confirm-message" class="text-xs text-slate-500 leading-relaxed mb-5"></p>
+      <div class="grid grid-cols-2 gap-2">
+        <button id="btn-confirm-cancel" type="button" class="py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 transition">취소</button>
+        <button id="btn-confirm-ok" type="button" class="py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white transition">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-[#191F28] text-white text-xs font-semibold shadow-lg opacity-0 pointer-events-none transition-opacity duration-200 whitespace-nowrap">
+    저장되었습니다
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const STORAGE_KEY = 'snack_and_soju_rollover_v3';
+      const LEGACY_STORAGE_KEY = 'monthly_rollover_budget_v1';
+
+      const CATEGORIES = [
+        { id: 'snack', label: '과자', emoji: '🍪', color: '#3182F6' },
+        { id: 'cafe', label: '카페/음료', emoji: '☕', color: '#8B5CF6' },
+        { id: 'dessert', label: '디저트', emoji: '🍰', color: '#EC4899' },
+        { id: 'cvs', label: '편의점', emoji: '🏪', color: '#0EA5E9' },
+        { id: 'bakery', label: '빵/베이커리', emoji: '🥐', color: '#F59E0B' },
+        { id: 'icecream', label: '아이스크림', emoji: '🍦', color: '#10B981' },
+        { id: 'delivery', label: '배달간식', emoji: '🍗', color: '#EF4444' },
+        { id: 'etc', label: '기타', emoji: '📌', color: '#64748B' }
+      ];
+
+      // Date helpers
+      function getTodayMonthKey() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        return `${y}-${m}`;
+      }
+
+      function getTodayDateString() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+
+      function shiftMonth(monthKey, delta) {
+        const [y, m] = monthKey.split('-').map(Number);
+        const date = new Date(y, m - 1 + delta, 1);
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      }
+
+      function formatMonthLabel(monthKey) {
+        const [y, m] = monthKey.split('-').map(Number);
+        return `${y}년 ${m}월`;
+      }
+
+      function formatShortMonth(monthKey) {
+        const [, m] = monthKey.split('-').map(Number);
+        return `${m}월`;
+      }
+
+      function formatWon(amount, showPlus = false) {
+        const num = Number(amount) || 0;
+        const absStr = Math.abs(Math.round(num)).toLocaleString('ko-KR');
+        if (num < 0) return `-${absStr}원`;
+        if (showPlus && num > 0) return `+${absStr}원`;
+        return `${absStr}원`;
+      }
+
+      function formatBottles(count, showPlus = false) {
+        const num = Math.round((Number(count) || 0) * 10) / 10;
+        const absStr = String(Math.abs(num)).replace(/\.0$/, '');
+        if (num < 0) return `-${absStr}병`;
+        if (showPlus && num > 0) return `+${absStr}병`;
+        return `${absStr}병`;
+      }
+
+      function formatDayHeader(dateStr) {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const dt = new Date(y, m - 1, d);
+        const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+        return `${m}월 ${d}일 (${weekdays[dt.getDay()]})`;
+      }
+
+      // Default state (Snack Budget + Soju Quota, clean initial state)
+      function createDefaultState() {
+        const currentMonth = getTodayMonthKey();
+        return {
+          settings: {
+            monthlyBudget: 10000,
+            startMonth: currentMonth,
+            rolloverEnabled: true,
+            rolloverDeficit: true,
+            rolloverCap: 0
+          },
+          monthlyOverrides: {},
+          expenses: [],
+          sojuSettings: {
+            monthlyQuota: 5,
+            startMonth: currentMonth,
+            rolloverEnabled: true,
+            rolloverDeficit: true,
+            rolloverCap: 0
+          },
+          sojuOverrides: {},
+          sojuLogs: []
+        };
+      }
+
+      // Safe localStorage wrapper with migration from v1
+      function loadState() {
+        const def = createDefaultState();
+        try {
+          let raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) {
+            raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+          }
+          if (!raw) return def;
+          const parsed = JSON.parse(raw);
+          return {
+            settings: Object.assign({}, def.settings, parsed.settings || {}),
+            monthlyOverrides: parsed.monthlyOverrides || {},
+            expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
+            sojuSettings: Object.assign({}, def.sojuSettings, parsed.sojuSettings || {}),
+            sojuOverrides: parsed.sojuOverrides || {},
+            sojuLogs: Array.isArray(parsed.sojuLogs) ? parsed.sojuLogs : []
+          };
+        } catch (e) {
+          return def;
+        }
+      }
+
+      function saveState() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {
+          // In-memory state continues working
+        }
+      }
+
+      let state = loadState();
+      let activeMode = 'snack'; // 'snack' | 'soju'
+      let activeMonth = getTodayMonthKey();
+      let activeTab = 'home';
+      let activeCategoryFilter = 'all';
+      let selectedModalCategory = 'snack';
+      let confirmCallback = null;
+      let monthlyChartInstance = null;
+      let categoryChartInstance = null;
+      let toastTimer = null;
+
+      // Core Rollover Engine (Shared for both Snack Budget & Soju Quota)
+      function getBaseValueForMonth(mode, monthKey) {
+        if (mode === 'soju') {
+          if (Object.prototype.hasOwnProperty.call(state.sojuOverrides, monthKey)) {
+            return Number(state.sojuOverrides[monthKey]) || 0;
+          }
+          return Number(state.sojuSettings.monthlyQuota) || 0;
+        }
+        if (Object.prototype.hasOwnProperty.call(state.monthlyOverrides, monthKey)) {
+          return Number(state.monthlyOverrides[monthKey]) || 0;
+        }
+        return Number(state.settings.monthlyBudget) || 0;
+      }
+
+      function getExpensesForMonth(monthKey) {
+        return state.expenses.filter(ex => ex.date && ex.date.startsWith(monthKey));
+      }
+
+      function getSojuLogsForMonth(monthKey) {
+        return state.sojuLogs.filter(lg => lg.date && lg.date.startsWith(monthKey));
+      }
+
+      function getUsedForMonth(mode, monthKey) {
+        if (mode === 'soju') {
+          const total = getSojuLogsForMonth(monthKey).reduce((acc, e) => acc + (Number(e.bottles) || 0), 0);
+          return Math.round(total * 10) / 10;
+        }
+        return getExpensesForMonth(monthKey).reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
+      }
+
+      function calculateMonthSummary(targetMonth, mode = activeMode) {
+        const cfg = mode === 'soju' ? state.sojuSettings : state.settings;
+        const { startMonth, rolloverEnabled, rolloverDeficit, rolloverCap } = cfg;
+
+        const roundVal = v => mode === 'soju' ? Math.round(v * 10) / 10 : Math.round(v);
+
+        if (!rolloverEnabled || targetMonth < startMonth) {
+          const base = getBaseValueForMonth(mode, targetMonth);
+          const spent = getUsedForMonth(mode, targetMonth);
+          const remaining = roundVal(base - spent);
+          let nextCarry = 0;
+          if (rolloverEnabled && targetMonth >= startMonth) {
+            nextCarry = rolloverDeficit ? remaining : Math.max(0, remaining);
+            if (rolloverCap > 0 && nextCarry > rolloverCap) nextCarry = rolloverCap;
+            nextCarry = roundVal(nextCarry);
+          }
+          return { base, carryIn: 0, available: base, spent, remaining, nextCarry };
+        }
+
+        let cursor = startMonth;
+        let carryIn = 0;
+        let safety = 0;
+
+        while (cursor <= targetMonth && safety < 240) {
+          const base = getBaseValueForMonth(mode, cursor);
+          const available = roundVal(base + carryIn);
+          const spent = getUsedForMonth(mode, cursor);
+          const remaining = roundVal(available - spent);
+
+          let nextCarry = rolloverDeficit ? remaining : Math.max(0, remaining);
+          if (rolloverCap > 0 && nextCarry > rolloverCap) {
+            nextCarry = rolloverCap;
+          }
+          nextCarry = roundVal(nextCarry);
+
+          if (cursor === targetMonth) {
+            return { base, carryIn: roundVal(carryIn), available, spent, remaining, nextCarry };
+          }
+
+          carryIn = nextCarry;
+          cursor = shiftMonth(cursor, 1);
+          safety++;
+        }
+
+        const base = getBaseValueForMonth(mode, targetMonth);
+        return { base, carryIn: 0, available: base, spent: 0, remaining: base, nextCarry: base };
+      }
+
+      // Toast helper
+      function showToast(msg) {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.remove('opacity-0');
+        el.classList.add('opacity-100');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          el.classList.remove('opacity-100');
+          el.classList.add('opacity-0');
+        }, 2200);
+      }
+
+      // Confirm Modal helper
+      function openConfirm(title, message, onOk) {
+        document.getElementById('confirm-title').textContent = title;
+        document.getElementById('confirm-message').textContent = message;
+        confirmCallback = onOk;
+        document.getElementById('confirm-modal').classList.remove('hidden');
+      }
+
+      function closeConfirm() {
+        document.getElementById('confirm-modal').classList.add('hidden');
+        confirmCallback = null;
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      // Render Header & Mode Switcher
+      function renderHeader() {
+        const isSoju = activeMode === 'soju';
+        document.getElementById('btn-current-month').textContent = formatMonthLabel(activeMonth);
+
+        const iconBox = document.getElementById('header-icon-box');
+        const emojiEl = document.getElementById('header-emoji');
+        const titleEl = document.getElementById('header-title');
+        const statusEl = document.getElementById('header-rollover-status');
+
+        if (isSoju) {
+          iconBox.className = 'w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm transition-colors';
+          emojiEl.textContent = '🍶';
+          titleEl.textContent = '잔여 소주';
+        } else {
+          iconBox.className = 'w-8 h-8 rounded-xl bg-[#3182F6] text-white flex items-center justify-center shadow-sm transition-colors';
+          emojiEl.textContent = '🍪';
+          titleEl.textContent = '간식 예산';
+        }
+
+        const rolloverOn = isSoju ? state.sojuSettings.rolloverEnabled : state.settings.rolloverEnabled;
+        if (rolloverOn) {
+          statusEl.textContent = '이월 자동 적용 중';
+          statusEl.className = 'text-[11px] font-medium text-emerald-600 leading-tight';
+        } else {
+          statusEl.textContent = '이월 꺼짐 (매월 초기화)';
+          statusEl.className = 'text-[11px] font-medium text-slate-400 leading-tight';
+        }
+
+        // Update Mode Switcher buttons
+        const snackBtn = document.getElementById('btn-mode-snack');
+        const sojuBtn = document.getElementById('btn-mode-soju');
+        if (isSoju) {
+          snackBtn.className = 'mode-switch-btn py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-700 transition';
+          sojuBtn.className = 'mode-switch-btn py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-white text-emerald-600 shadow-sm transition';
+        } else {
+          snackBtn.className = 'mode-switch-btn py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-white text-[#3182F6] shadow-sm transition';
+          sojuBtn.className = 'mode-switch-btn py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-700 transition';
+        }
+
+        // Update active nav tab accent color
+        document.querySelectorAll('.nav-tab').forEach(btn => {
+          const isActive = btn.dataset.tab === activeTab;
+          btn.classList.remove('text-[#3182F6]', 'text-emerald-600', 'text-slate-400', 'font-semibold', 'font-medium');
+          if (isActive) {
+            btn.classList.add(isSoju ? 'text-emerald-600' : 'text-[#3182F6]', 'font-semibold');
+          } else {
+            btn.classList.add('text-slate-400', 'font-medium');
+          }
+        });
+      }
+
+      // Render Home View
+      function renderHome() {
+        const isSoju = activeMode === 'soju';
+        const summary = calculateMonthSummary(activeMonth, activeMode);
+        const fmt = isSoju ? formatBottles : formatWon;
+
+        document.getElementById('hero-subtitle').textContent = isSoju
+          ? '이번 달 남은 소주'
+          : '이번 달 남은 간식 예산';
+
+        const remainingEl = document.getElementById('hero-remaining');
+        remainingEl.textContent = fmt(summary.remaining);
+        remainingEl.className = `text-[30px] font-extrabold tracking-tight tabular-nums ${
+          summary.remaining < 0 ? 'text-rose-600' : 'text-[#191F28]'
+        }`;
+
+        // Visual Soju Bottles Strip
+        const bottleStrip = document.getElementById('soju-bottle-strip');
+        if (isSoju) {
+          bottleStrip.classList.remove('hidden');
+          const totalSlots = Math.min(10, Math.max(5, Math.ceil(summary.available)));
+          const remainingCount = Math.max(0, Math.floor(summary.remaining));
+          const hasHalf = summary.remaining > 0 && (summary.remaining - remainingCount) >= 0.4;
+          let iconsHtml = '';
+          for (let i = 0; i < totalSlots; i++) {
+            if (i < remainingCount) {
+              iconsHtml += `<span class="w-7 h-7 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-sm" title="남은 소주">🍶</span>`;
+            } else if (i === remainingCount && hasHalf) {
+              iconsHtml += `<span class="w-7 h-7 rounded-xl bg-emerald-50/60 border border-dashed border-emerald-300 flex items-center justify-center text-sm opacity-75" title="반 병 남음">🍶</span>`;
+            } else {
+              iconsHtml += `<span class="w-7 h-7 rounded-xl bg-slate-100 border border-slate-200/70 flex items-center justify-center text-sm opacity-30 grayscale" title="마신 소주">🍶</span>`;
+            }
+          }
+          if (summary.remaining > 10) {
+            iconsHtml += `<span class="px-2 py-1 rounded-xl bg-emerald-100 text-emerald-700 text-[11px] font-bold">+${formatBottles(summary.remaining - 10)}</span>`;
+          }
+          bottleStrip.innerHTML = iconsHtml;
+        } else {
+          bottleStrip.classList.add('hidden');
+        }
+
+        // Usage percent
+        let usagePct = 0;
+        if (summary.available > 0) {
+          usagePct = Math.round((summary.spent / summary.available) * 100);
+        } else if (summary.spent > 0) {
+          usagePct = 100;
+        }
+
+        const badgeEl = document.getElementById('hero-status-badge');
+        const barEl = document.getElementById('hero-progress-bar');
+
+        if (summary.remaining < 0) {
+          badgeEl.textContent = isSoju ? '초과 음주' : '예산 초과';
+          badgeEl.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-600';
+          barEl.className = 'h-full bg-rose-500 rounded-full transition-all duration-300';
+        } else if (usagePct >= 80) {
+          badgeEl.textContent = '주의';
+          badgeEl.className = 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-600';
+          barEl.className = 'h-full bg-amber-500 rounded-full transition-all duration-300';
+        } else {
+          badgeEl.textContent = '여유';
+          badgeEl.className = isSoju
+            ? 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700'
+            : 'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#3182F6]';
+          barEl.className = isSoju
+            ? 'h-full bg-emerald-500 rounded-full transition-all duration-300'
+            : 'h-full bg-[#3182F6] rounded-full transition-all duration-300';
+        }
+
+        document.getElementById('hero-usage-label').textContent = isSoju
+          ? `소진율 ${Math.max(0, usagePct)}%`
+          : `사용률 ${Math.max(0, usagePct)}%`;
+        document.getElementById('hero-total-available').textContent = isSoju
+          ? `총 허용량 ${fmt(summary.available)}`
+          : `총 예산 ${fmt(summary.available)}`;
+        barEl.style.width = `${Math.min(100, Math.max(0, usagePct))}%`;
+
+        document.getElementById('stat-base-budget').textContent = fmt(summary.base);
+
+        const carryEl = document.getElementById('stat-carry-in');
+        carryEl.textContent = summary.carryIn === 0 ? fmt(0) : fmt(summary.carryIn, true);
+        carryEl.className = `text-[13px] font-bold mt-1 tabular-nums truncate ${
+          summary.carryIn > 0 ? 'text-emerald-600' : summary.carryIn < 0 ? 'text-rose-600' : 'text-slate-500'
+        }`;
+
+        document.getElementById('stat-spent-label').textContent = isSoju ? '이번 달 음주' : '이번 달 지출';
+        document.getElementById('stat-spent').textContent = summary.spent > 0 ? `-${fmt(summary.spent)}` : fmt(0);
+
+        const nextCarryBox = document.getElementById('next-carry-box');
+        nextCarryBox.className = isSoju
+          ? 'mt-3 px-3 py-2.5 rounded-2xl bg-emerald-50/75 flex items-center justify-between text-xs'
+          : 'mt-3 px-3 py-2.5 rounded-2xl bg-blue-50/70 flex items-center justify-between text-xs';
+
+        document.getElementById('stat-next-carry-label').textContent = isSoju
+          ? '다음 달 예상 이월 소주'
+          : '다음 달 예상 이월액';
+
+        const nextCarryEl = document.getElementById('stat-next-carry');
+        const rolloverOn = isSoju ? state.sojuSettings.rolloverEnabled : state.settings.rolloverEnabled;
+        if (!rolloverOn) {
+          nextCarryEl.textContent = isSoju ? '이월 꺼짐 (0병)' : '이월 꺼짐 (0원)';
+          nextCarryEl.className = 'font-bold text-slate-400 tabular-nums';
+        } else {
+          nextCarryEl.textContent = summary.nextCarry === 0 ? fmt(0) : fmt(summary.nextCarry, true);
+          nextCarryEl.className = `font-bold tabular-nums ${
+            summary.nextCarry < 0 ? 'text-rose-600' : (isSoju ? 'text-emerald-700' : 'text-[#3182F6]')
+          }`;
+        }
+
+        // Toggle Action Areas & Category Filters
+        document.getElementById('snack-action-area').classList.toggle('hidden', isSoju);
+        document.getElementById('soju-action-area').classList.toggle('hidden', !isSoju);
+        document.getElementById('category-filter-bar').classList.toggle('hidden', isSoju);
+        document.getElementById('history-section-title').textContent = isSoju ? '소주 음주 기록' : '간식 지출 내역';
+
+        if (isSoju) {
+          renderSojuList();
+        } else {
+          renderCategoryFilters();
+          renderExpenseList();
+        }
+      }
+
+      function renderCategoryFilters() {
+        const container = document.getElementById('category-filter-bar');
+        const monthExpenses = getExpensesForMonth(activeMonth);
+        if (monthExpenses.length === 0) {
+          container.innerHTML = '';
+          return;
+        }
+
+        const chips = [{ id: 'all', label: '전체', emoji: '' }].concat(
+          CATEGORIES.filter(c => monthExpenses.some(e => e.category === c.id))
+        );
+
+        if (!chips.some(c => c.id === activeCategoryFilter)) {
+          activeCategoryFilter = 'all';
+        }
+
+        container.innerHTML = chips.map(c => {
+          const isActive = activeCategoryFilter === c.id;
+          return `<button type="button" data-filter-cat="${c.id}" class="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition ${
+            isActive
+              ? 'bg-[#191F28] text-white'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+          }">${c.emoji ? c.emoji + ' ' : ''}${c.label}</button>`;
+        }).join('');
+      }
+
+      function renderExpenseList() {
+        const container = document.getElementById('expense-list-container');
+        let list = getExpensesForMonth(activeMonth);
+
+        if (activeCategoryFilter !== 'all') {
+          list = list.filter(e => e.category === activeCategoryFilter);
+        }
+
+        document.getElementById('expense-count-label').textContent = `${list.length}건`;
+
+        if (list.length === 0) {
+          const isFiltered = activeCategoryFilter !== 'all';
+          container.innerHTML = `
+            <div class="bg-white rounded-3xl p-7 text-center border border-slate-100 shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
+              <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3 text-xl">
+                🍪
+              </div>
+              <p class="text-sm font-bold text-[#191F28]">${isFiltered ? '해당 종류의 간식 지출이 없어요' : `${formatMonthLabel(activeMonth)} 간식 지출이 없어요`}</p>
+              <p class="text-xs text-slate-500 mt-1">간식 지출을 기록하면 남은 예산에서 바로 차감되고,<br/>남은 금액은 다음 달로 자동 이월됩니다.</p>
+            </div>
+          `;
+          return;
+        }
+
+        list.sort((a, b) => {
+          if (a.date !== b.date) return b.date.localeCompare(a.date);
+          return (b.createdAt || 0) - (a.createdAt || 0);
+        });
+
+        const grouped = {};
+        list.forEach(item => {
+          if (!grouped[item.date]) grouped[item.date] = [];
+          grouped[item.date].push(item);
+        });
+
+        container.innerHTML = Object.keys(grouped).map(dateStr => {
+          const items = grouped[dateStr];
+          const dayTotal = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+
+          const rowsHtml = items.map(item => {
+            const cat = CATEGORIES.find(c => c.id === item.category) || CATEGORIES[CATEGORIES.length - 1];
+            const safeMemo = escapeHtml(item.memo || cat.label);
+            return `
+              <button type="button" data-edit-expense="${item.id}" class="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 active:bg-slate-100 transition text-left">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-9 h-9 rounded-2xl bg-slate-100 flex items-center justify-center text-base flex-shrink-0">
+                    ${cat.emoji}
+                  </div>
+                  <div class="min-w-0">
+                    <div class="text-sm font-semibold text-[#191F28] truncate">${safeMemo}</div>
+                    <div class="text-[11px] text-slate-400">${cat.label}</div>
+                  </div>
+                </div>
+                <div class="text-sm font-bold text-[#191F28] tabular-nums flex-shrink-0">
+                  -${formatWon(item.amount)}
+                </div>
+              </button>
+            `;
+          }).join('');
+
+          return `
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-[0_1px_6px_rgba(15,23,42,0.03)] overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-2 bg-slate-50/70 border-b border-slate-100 text-[11px] font-semibold text-slate-500">
+                <span>${formatDayHeader(dateStr)}</span>
+                <span class="tabular-nums">-${formatWon(dayTotal)}</span>
+              </div>
+              <div class="divide-y divide-slate-100">
+                ${rowsHtml}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function renderSojuList() {
+        const container = document.getElementById('expense-list-container');
+        const list = getSojuLogsForMonth(activeMonth);
+
+        document.getElementById('expense-count-label').textContent = `${list.length}회`;
+
+        if (list.length === 0) {
+          container.innerHTML = `
+            <div class="bg-white rounded-3xl p-7 text-center border border-slate-100 shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
+              <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center mb-3 text-xl">
+                🍶
+              </div>
+              <p class="text-sm font-bold text-[#191F28]">${formatMonthLabel(activeMonth)}에 마신 소주가 없어요</p>
+              <p class="text-xs text-slate-500 mt-1">위 버튼을 눌러 1병씩 바로 차감할 수 있고,<br/>안 마신 병 수는 다음 달로 자동 이월됩니다.</p>
+            </div>
+          `;
+          return;
+        }
+
+        list.sort((a, b) => {
+          if (a.date !== b.date) return b.date.localeCompare(a.date);
+          return (b.createdAt || 0) - (a.createdAt || 0);
+        });
+
+        const grouped = {};
+        list.forEach(item => {
+          if (!grouped[item.date]) grouped[item.date] = [];
+          grouped[item.date].push(item);
+        });
+
+        container.innerHTML = Object.keys(grouped).map(dateStr => {
+          const items = grouped[dateStr];
+          const dayTotal = Math.round(items.reduce((s, i) => s + (Number(i.bottles) || 0), 0) * 10) / 10;
+
+          const rowsHtml = items.map(item => {
+            const safeMemo = escapeHtml(item.memo || `소주 ${formatBottles(item.bottles)}`);
+            return `
+              <button type="button" data-edit-soju="${item.id}" class="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 active:bg-slate-100 transition text-left">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-9 h-9 rounded-2xl bg-emerald-50 flex items-center justify-center text-base flex-shrink-0">
+                    🍶
+                  </div>
+                  <div class="min-w-0">
+                    <div class="text-sm font-semibold text-[#191F28] truncate">${safeMemo}</div>
+                    <div class="text-[11px] text-slate-400">눌러서 수정 또는 삭제</div>
+                  </div>
+                </div>
+                <div class="text-sm font-bold text-emerald-700 tabular-nums flex-shrink-0">
+                  -${formatBottles(item.bottles)}
+                </div>
+              </button>
+            `;
+          }).join('');
+
+          return `
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-[0_1px_6px_rgba(15,23,42,0.03)] overflow-hidden">
+              <div class="flex items-center justify-between px-4 py-2 bg-emerald-50/50 border-b border-slate-100 text-[11px] font-semibold text-slate-500">
+                <span>${formatDayHeader(dateStr)}</span>
+                <span class="tabular-nums text-emerald-700">-${formatBottles(dayTotal)}</span>
+              </div>
+              <div class="divide-y divide-slate-100">
+                ${rowsHtml}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Render Analytics View
+      function renderAnalytics() {
+        const isSoju = activeMode === 'soju';
+        const months = [];
+        for (let i = -5; i <= 0; i++) {
+          months.push(shiftMonth(activeMonth, i));
+        }
+
+        const summaries = months.map(m => ({ month: m, ...calculateMonthSummary(m, activeMode) }));
+
+        document.getElementById('analytics-trend-title').textContent = isSoju
+          ? '최근 6개월 소주 허용량 · 음주 흐름'
+          : '최근 6개월 간식 예산 · 지출 흐름';
+        document.getElementById('analytics-trend-sub').textContent = isSoju
+          ? '이월 포함 총 허용량(병) 대비 실제 음주량'
+          : '이월 포함 총 예산 대비 실제 지출';
+
+        const ctxMonthly = document.getElementById('chart-monthly').getContext('2d');
+        if (monthlyChartInstance) {
+          monthlyChartInstance.destroy();
+        }
+
+        const primaryColor = isSoju ? '#059669' : '#3182F6';
+        const lightColor = isSoju ? 'rgba(5, 150, 105, 0.2)' : 'rgba(49, 130, 246, 0.2)';
+
+        if (window.Chart) {
+          monthlyChartInstance = new Chart(ctxMonthly, {
+            type: 'bar',
+            data: {
+              labels: months.map(formatShortMonth),
+              datasets: [
+                {
+                  label: isSoju ? '총 허용량 (이월 포함)' : '총 예산 (이월 포함)',
+                  data: summaries.map(s => Math.max(0, s.available)),
+                  backgroundColor: lightColor,
+                  borderColor: primaryColor,
+                  borderWidth: 1.5,
+                  borderRadius: 6
+                },
+                {
+                  label: isSoju ? '실제 음주량' : '실제 지출',
+                  data: summaries.map(s => s.spent),
+                  backgroundColor: primaryColor,
+                  borderRadius: 6
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: { boxWidth: 10, font: { size: 11 } }
+                },
+                tooltip: {
+                  callbacks: {
+                    label: ctx => `${ctx.dataset.label}: ${isSoju ? formatBottles(ctx.raw) : formatWon(ctx.raw)}`
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    font: { size: 10 },
+                    callback: v => isSoju ? `${v}병` : (v >= 10000 ? `${Math.round(v / 10000)}만` : v)
+                  },
+                  grid: { color: '#F1F5F9' }
+                },
+                x: {
+                  grid: { display: false },
+                  ticks: { font: { size: 11 } }
+                }
+              }
+            }
+          });
+        }
+
+        // Toggle Category Card vs Soju Summary Card
+        document.getElementById('analytics-cat-card').classList.toggle('hidden', isSoju);
+        document.getElementById('analytics-soju-card').classList.toggle('hidden', !isSoju);
+
+        if (isSoju) {
+          document.getElementById('analytics-soju-title').textContent = `${formatMonthLabel(activeMonth)} 음주 요약`;
+          const logs = getSojuLogsForMonth(activeMonth);
+          const totalBottles = Math.round(logs.reduce((s, l) => s + (Number(l.bottles) || 0), 0) * 10) / 10;
+          const avgBottles = logs.length > 0 ? Math.round((totalBottles / logs.length) * 10) / 10 : 0;
+          document.getElementById('soju-stat-sessions').textContent = `${logs.length}회`;
+          document.getElementById('soju-stat-total').textContent = formatBottles(totalBottles);
+          document.getElementById('soju-stat-avg').textContent = formatBottles(avgBottles);
+        } else {
+          document.getElementById('analytics-cat-title').textContent = `${formatMonthLabel(activeMonth)} 간식 종류별 지출`;
+          const monthExpenses = getExpensesForMonth(activeMonth);
+          const totalSpent = monthExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+          const emptyEl = document.getElementById('analytics-cat-empty');
+          const contentEl = document.getElementById('analytics-cat-content');
+
+          if (totalSpent === 0) {
+            emptyEl.classList.remove('hidden');
+            contentEl.classList.add('hidden');
+          } else {
+            emptyEl.classList.add('hidden');
+            contentEl.classList.remove('hidden');
+
+            const byCat = {};
+            monthExpenses.forEach(e => {
+              byCat[e.category] = (byCat[e.category] || 0) + (Number(e.amount) || 0);
+            });
+
+            const sortedCats = Object.keys(byCat)
+              .map(id => {
+                const meta = CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length - 1];
+                return { ...meta, amount: byCat[id], pct: Math.round((byCat[id] / totalSpent) * 100) };
+              })
+              .sort((a, b) => b.amount - a.amount);
+
+            const ctxCat = document.getElementById('chart-category').getContext('2d');
+            if (categoryChartInstance) {
+              categoryChartInstance.destroy();
+            }
+
+            if (window.Chart) {
+              categoryChartInstance = new Chart(ctxCat, {
+                type: 'doughnut',
+                data: {
+                  labels: sortedCats.map(c => c.label),
+                  datasets: [{
+                    data: sortedCats.map(c => c.amount),
+                    backgroundColor: sortedCats.map(c => c.color),
+                    borderWidth: 2,
+                    borderColor: '#FFFFFF'
+                  }]
+                },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  cutout: '64%',
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                      callbacks: {
+                        label: ctx => `${ctx.label}: ${formatWon(ctx.raw)}`
+                      }
+                    }
+                  }
+                }
+              });
+            }
+
+            document.getElementById('analytics-cat-list').innerHTML = sortedCats.map(c => `
+              <div class="flex items-center justify-between text-xs py-1">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full" style="background:${c.color}"></span>
+                  <span class="font-semibold text-[#191F28]">${c.emoji} ${c.label}</span>
+                  <span class="text-slate-400">${c.pct}%</span>
+                </div>
+                <span class="font-bold text-[#191F28] tabular-nums">${formatWon(c.amount)}</span>
+              </div>
+            `).join('');
+          }
+        }
+
+        // Rollover Ledger Table
+        document.getElementById('ledger-title').textContent = isSoju ? '월별 소주 이월 정산표' : '월별 간식 예산 이월 정산표';
+        document.getElementById('ledger-col-used').textContent = isSoju ? '음주' : '지출';
+        const tbody = document.getElementById('rollover-ledger-body');
+
+        tbody.innerHTML = summaries.slice().reverse().map(s => {
+          const isCurrent = s.month === activeMonth;
+          if (isSoju) {
+            return `
+              <tr class="${isCurrent ? 'bg-emerald-50/60 font-semibold' : ''}">
+                <td class="text-left py-2.5 text-[#191F28] font-semibold">${formatShortMonth(s.month)}</td>
+                <td class="py-2.5 text-slate-600">${formatBottles(s.base)}</td>
+                <td class="py-2.5 ${s.carryIn > 0 ? 'text-emerald-600' : s.carryIn < 0 ? 'text-rose-600' : 'text-slate-400'}">
+                  ${s.carryIn === 0 ? '0병' : formatBottles(s.carryIn, true)}
+                </td>
+                <td class="py-2.5 text-slate-700">${formatBottles(s.spent)}</td>
+                <td class="py-2.5 font-bold ${s.remaining < 0 ? 'text-rose-600' : 'text-emerald-700'}">
+                  ${formatBottles(s.remaining)}
+                </td>
+              </tr>
+            `;
+          }
+          const fmtMan = val => Math.abs(val) >= 100000 ? `${(val / 10000).toFixed(1).replace(/\.0$/, '')}만` : `${Math.round(val).toLocaleString('ko-KR')}`;
+          return `
+            <tr class="${isCurrent ? 'bg-blue-50/50 font-semibold' : ''}">
+              <td class="text-left py-2.5 text-[#191F28] font-semibold">${formatShortMonth(s.month)}</td>
+              <td class="py-2.5 text-slate-600">${fmtMan(s.base)}</td>
+              <td class="py-2.5 ${s.carryIn > 0 ? 'text-emerald-600' : s.carryIn < 0 ? 'text-rose-600' : 'text-slate-400'}">
+                ${s.carryIn === 0 ? '0' : (s.carryIn > 0 ? '+' : '') + fmtMan(s.carryIn)}
+              </td>
+              <td class="py-2.5 text-slate-700">${fmtMan(s.spent)}</td>
+              <td class="py-2.5 font-bold ${s.remaining < 0 ? 'text-rose-600' : 'text-[#3182F6]'}">
+                ${fmtMan(s.remaining)}
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Render Settings View
+      function renderSettings() {
+        const isSoju = activeMode === 'soju';
+        document.getElementById('settings-snack-block').classList.toggle('hidden', isSoju);
+        document.getElementById('settings-soju-block').classList.toggle('hidden', !isSoju);
+
+        document.getElementById('settings-primary-title').textContent = isSoju
+          ? '🍶 소주 월 허용량 설정'
+          : '🍪 간식 월 예산 설정';
+        document.getElementById('settings-rollover-title').textContent = isSoju
+          ? '소주 이월 규칙'
+          : '간식 예산 이월 규칙';
+
+        document.getElementById('toggle-rollover-label').textContent = isSoju
+          ? '남은 소주 다음 달 이월'
+          : '남은 예산 다음 달 이월';
+        document.getElementById('toggle-rollover-desc').textContent = isSoju
+          ? '끄면 매달 기본 병 수로 초기화됩니다'
+          : '끄면 매달 기본 예산으로 초기화됩니다';
+
+        document.getElementById('toggle-deficit-label').textContent = isSoju
+          ? '초과 음주(마이너스)도 이월'
+          : '초과 지출(마이너스)도 이월';
+        document.getElementById('toggle-deficit-desc').textContent = isSoju
+          ? '허용량을 넘겨 마시면 다음 달 병 수에서 차감'
+          : '예산을 넘겨 쓰면 다음 달 예산에서 차감';
+
+        const capInput = document.getElementById('setting-rollover-cap');
+        if (isSoju) {
+          document.getElementById('setting-soju-quota').value = state.sojuSettings.monthlyQuota;
+          document.getElementById('setting-start-month').value = state.sojuSettings.startMonth;
+          document.getElementById('setting-cap-label').textContent = '최대 이월 한도 (병, 0이면 무제한)';
+          capInput.step = '1';
+          capInput.value = state.sojuSettings.rolloverCap || 0;
+          setToggleUI('toggle-rollover', state.sojuSettings.rolloverEnabled, true);
+          setToggleUI('toggle-deficit', state.sojuSettings.rolloverDeficit, true);
+        } else {
+          document.getElementById('setting-monthly-budget').value = state.settings.monthlyBudget;
+          document.getElementById('setting-start-month').value = state.settings.startMonth;
+          document.getElementById('setting-cap-label').textContent = '최대 이월 한도 (원, 0이면 무제한)';
+          capInput.step = '1000';
+          capInput.value = state.settings.rolloverCap || 0;
+          setToggleUI('toggle-rollover', state.settings.rolloverEnabled, false);
+          setToggleUI('toggle-deficit', state.settings.rolloverDeficit, false);
+        }
+      }
+
+      function setToggleUI(id, checked, isSoju = false) {
+        const btn = document.getElementById(id);
+        const thumb = btn.querySelector('.toggle-thumb');
+        btn.setAttribute('aria-checked', String(checked));
+        btn.classList.remove('bg-slate-200', 'bg-[#3182F6]', 'bg-emerald-600');
+        if (checked) {
+          btn.classList.add(isSoju ? 'bg-emerald-600' : 'bg-[#3182F6]');
+          thumb.classList.add('translate-x-5');
+        } else {
+          btn.classList.add('bg-slate-200');
+          thumb.classList.remove('translate-x-5');
+        }
+      }
+
+      // Master Render
+      function renderAll() {
+        renderHeader();
+        if (activeTab === 'home') renderHome();
+        if (activeTab === 'analytics') renderAnalytics();
+        if (activeTab === 'settings') renderSettings();
+        if (window.lucide) lucide.createIcons();
+      }
+
+      function switchTab(tabName) {
+        activeTab = tabName;
+        ['home', 'analytics', 'settings'].forEach(t => {
+          document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tabName);
+        });
+        renderAll();
+      }
+
+      function switchMode(mode) {
+        if (mode !== 'snack' && mode !== 'soju') return;
+        activeMode = mode;
+        activeCategoryFilter = 'all';
+        renderAll();
+      }
+
+      // Snack Expense Modal Controls
+      function renderModalCategories() {
+        const grid = document.getElementById('modal-category-grid');
+        grid.innerHTML = CATEGORIES.map(c => {
+          const active = c.id === selectedModalCategory;
+          return `
+            <button type="button" data-modal-cat="${c.id}" class="py-2 px-1 rounded-xl border text-center transition ${
+              active
+                ? 'bg-blue-50 border-[#3182F6] text-[#3182F6] font-bold'
+                : 'bg-slate-50 border-slate-200 text-slate-600 font-medium hover:bg-slate-100'
+            }">
+              <div class="text-base leading-none mb-1">${c.emoji}</div>
+              <div class="text-[11px]">${c.label}</div>
+            </button>
+          `;
+        }).join('');
+      }
+
+      function openExpenseModal(expenseId = null) {
+        const modal = document.getElementById('expense-modal');
+        const idInput = document.getElementById('expense-id');
+        const amountInput = document.getElementById('expense-amount');
+        const memoInput = document.getElementById('expense-memo');
+        const dateInput = document.getElementById('expense-date');
+        const deleteBtn = document.getElementById('btn-delete-expense');
+        const titleEl = document.getElementById('expense-modal-title');
+
+        if (expenseId) {
+          const item = state.expenses.find(e => e.id === expenseId);
+          if (!item) return;
+          titleEl.textContent = '간식 지출 수정';
+          idInput.value = item.id;
+          amountInput.value = item.amount;
+          memoInput.value = item.memo || '';
+          dateInput.value = item.date;
+          selectedModalCategory = item.category || 'etc';
+          deleteBtn.classList.remove('hidden');
+        } else {
+          titleEl.textContent = '간식 지출 기록하기';
+          idInput.value = '';
+          amountInput.value = '';
+          memoInput.value = '';
+          const todayMonth = getTodayMonthKey();
+          dateInput.value = activeMonth === todayMonth ? getTodayDateString() : `${activeMonth}-01`;
+          selectedModalCategory = 'snack';
+          deleteBtn.classList.add('hidden');
+        }
+
+        renderModalCategories();
+        modal.classList.remove('hidden');
+        setTimeout(() => amountInput.focus(), 80);
+      }
+
+      function closeExpenseModal() {
+        document.getElementById('expense-modal').classList.add('hidden');
+      }
+
+      // Soju Modal Controls
+      function openSojuModal(logId = null) {
+        const modal = document.getElementById('soju-modal');
+        const idInput = document.getElementById('soju-log-id');
+        const bottlesInput = document.getElementById('soju-bottles');
+        const memoInput = document.getElementById('soju-memo');
+        const dateInput = document.getElementById('soju-date');
+        const deleteBtn = document.getElementById('btn-delete-soju');
+        const titleEl = document.getElementById('soju-modal-title');
+
+        if (logId) {
+          const item = state.sojuLogs.find(l => l.id === logId);
+          if (!item) return;
+          titleEl.textContent = '소주 기록 수정';
+          idInput.value = item.id;
+          bottlesInput.value = item.bottles;
+          memoInput.value = item.memo || '';
+          dateInput.value = item.date;
+          deleteBtn.classList.remove('hidden');
+        } else {
+          titleEl.textContent = '소주 음주 기록';
+          idInput.value = '';
+          bottlesInput.value = '1';
+          memoInput.value = '';
+          const todayMonth = getTodayMonthKey();
+          dateInput.value = activeMonth === todayMonth ? getTodayDateString() : `${activeMonth}-01`;
+          deleteBtn.classList.add('hidden');
+        }
+
+        modal.classList.remove('hidden');
+      }
+
+      function closeSojuModal() {
+        document.getElementById('soju-modal').classList.add('hidden');
+      }
+
+      // Quick 1-Bottle Deduction
+      function drinkOneSojuQuick() {
+        const todayMonth = getTodayMonthKey();
+        const date = activeMonth === todayMonth ? getTodayDateString() : `${activeMonth}-01`;
+        const logMonth = date.slice(0, 7);
+        if (logMonth < state.sojuSettings.startMonth) {
+          state.sojuSettings.startMonth = logMonth;
+        }
+
+        state.sojuLogs.push({
+          id: `soju-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          bottles: 1,
+          memo: '소주 1병',
+          date,
+          createdAt: Date.now()
+        });
+
+        saveState();
+        renderAll();
+        const summary = calculateMonthSummary(activeMonth, 'soju');
+        showToast(`🍶 1병 차감 완료! (잔여 ${formatBottles(summary.remaining)})`);
+      }
+
+      // Quick Budget / Quota Modal Controls
+      function openBudgetModal() {
+        const isSoju = activeMode === 'soju';
+        const currentBase = getBaseValueForMonth(activeMode, activeMonth);
+        const input = document.getElementById('budget-modal-input');
+        const unit = document.getElementById('budget-modal-unit');
+        const allBtn = document.getElementById('btn-budget-all-months');
+
+        document.getElementById('budget-modal-title').textContent = isSoju
+          ? `${formatMonthLabel(activeMonth)} 소주 허용량 수정`
+          : `${formatMonthLabel(activeMonth)} 간식 예산 수정`;
+        document.getElementById('budget-modal-desc').textContent = isSoju
+          ? '매월 기본 소주 병 수를 변경하거나 이 달만 다르게 설정할 수 있습니다.'
+          : '매월 기본 간식 예산을 변경하거나 이 달만 다르게 설정할 수 있습니다.';
+
+        input.step = isSoju ? '0.5' : '1000';
+        input.value = currentBase;
+        unit.textContent = isSoju ? '병' : '원';
+
+        allBtn.className = isSoju
+          ? 'py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white transition'
+          : 'py-2.5 px-3 rounded-xl bg-[#3182F6] hover:bg-[#1B64DA] text-xs font-bold text-white transition';
+
+        document.getElementById('budget-modal').classList.remove('hidden');
+      }
+
+      function closeBudgetModal() {
+        document.getElementById('budget-modal').classList.add('hidden');
+      }
+
+      // Event Listeners
+      document.getElementById('btn-mode-snack').addEventListener('click', () => switchMode('snack'));
+      document.getElementById('btn-mode-soju').addEventListener('click', () => switchMode('soju'));
+
+      document.getElementById('btn-prev-month').addEventListener('click', () => {
+        activeMonth = shiftMonth(activeMonth, -1);
+        activeCategoryFilter = 'all';
+        renderAll();
+      });
+
+      document.getElementById('btn-next-month').addEventListener('click', () => {
+        activeMonth = shiftMonth(activeMonth, 1);
+        activeCategoryFilter = 'all';
+        renderAll();
+      });
+
+      document.getElementById('btn-current-month').addEventListener('click', () => {
+        activeMonth = getTodayMonthKey();
+        activeCategoryFilter = 'all';
+        renderAll();
+      });
+
+      document.querySelectorAll('.nav-tab').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      document.getElementById('btn-open-add-expense').addEventListener('click', () => openExpenseModal(null));
+      document.getElementById('btn-close-expense-modal').addEventListener('click', closeExpenseModal);
+      document.getElementById('expense-modal-backdrop').addEventListener('click', closeExpenseModal);
+
+      document.getElementById('btn-drink-one-soju').addEventListener('click', drinkOneSojuQuick);
+      document.getElementById('btn-open-add-soju').addEventListener('click', () => openSojuModal(null));
+      document.getElementById('btn-close-soju-modal').addEventListener('click', closeSojuModal);
+      document.getElementById('soju-modal-backdrop').addEventListener('click', closeSojuModal);
+
+      document.getElementById('btn-quick-budget').addEventListener('click', openBudgetModal);
+      document.getElementById('budget-modal-backdrop').addEventListener('click', closeBudgetModal);
+      document.getElementById('btn-budget-cancel').addEventListener('click', closeBudgetModal);
+
+      document.getElementById('btn-budget-this-month').addEventListener('click', () => {
+        const raw = Number(document.getElementById('budget-modal-input').value) || 0;
+        const val = activeMode === 'soju' ? Math.max(0, Math.round(raw * 10) / 10) : Math.max(0, Math.round(raw));
+        if (activeMode === 'soju') {
+          state.sojuOverrides[activeMonth] = val;
+        } else {
+          state.monthlyOverrides[activeMonth] = val;
+        }
+        saveState();
+        closeBudgetModal();
+        renderAll();
+        showToast(`${formatMonthLabel(activeMonth)} 기준이 변경되었습니다`);
+      });
+
+      document.getElementById('btn-budget-all-months').addEventListener('click', () => {
+        const raw = Number(document.getElementById('budget-modal-input').value) || 0;
+        const val = activeMode === 'soju' ? Math.max(0, Math.round(raw * 10) / 10) : Math.max(0, Math.round(raw));
+        if (activeMode === 'soju') {
+          state.sojuSettings.monthlyQuota = val;
+          delete state.sojuOverrides[activeMonth];
+        } else {
+          state.settings.monthlyBudget = val;
+          delete state.monthlyOverrides[activeMonth];
+        }
+        saveState();
+        closeBudgetModal();
+        renderAll();
+        showToast(activeMode === 'soju' ? `매월 기본 소주 ${formatBottles(val)} 저장됨` : `매월 기본 간식 예산 ${formatWon(val)} 저장됨`);
+      });
+
+      // Quick amount buttons inside snack modal
+      document.querySelectorAll('.quick-amt-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const input = document.getElementById('expense-amount');
+          const cur = Number(input.value) || 0;
+          input.value = cur + Number(btn.dataset.addAmount);
+        });
+      });
+
+      // Quick bottle buttons inside soju modal
+      document.querySelectorAll('.quick-bottle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('soju-bottles').value = btn.dataset.setBottles;
+        });
+      });
+
+      // Delegated clicks for modal categories
+      document.getElementById('modal-category-grid').addEventListener('click', e => {
+        const btn = e.target.closest('[data-modal-cat]');
+        if (!btn) return;
+        selectedModalCategory = btn.dataset.modalCat;
+        renderModalCategories();
+      });
+
+      // Snack Expense Form Submit
+      document.getElementById('expense-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const id = document.getElementById('expense-id').value;
+        const amount = Math.round(Number(document.getElementById('expense-amount').value) || 0);
+        const memo = document.getElementById('expense-memo').value.trim();
+        const date = document.getElementById('expense-date').value;
+
+        if (amount <= 0 || !date) {
+          showToast('금액과 날짜를 올바르게 입력해주세요');
+          return;
+        }
+
+        const expenseMonth = date.slice(0, 7);
+        if (expenseMonth < state.settings.startMonth) {
+          state.settings.startMonth = expenseMonth;
+        }
+
+        if (id) {
+          const idx = state.expenses.findIndex(item => item.id === id);
+          if (idx !== -1) {
+            state.expenses[idx] = {
+              ...state.expenses[idx],
+              amount,
+              memo,
+              date,
+              category: selectedModalCategory
+            };
+          }
+          showToast('간식 지출 내역이 수정되었습니다');
+        } else {
+          state.expenses.push({
+            id: `exp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            amount,
+            memo,
+            date,
+            category: selectedModalCategory,
+            createdAt: Date.now()
+          });
+          showToast(`${formatWon(amount)} 차감되었습니다`);
+        }
+
+        activeMonth = expenseMonth;
+        saveState();
+        closeExpenseModal();
+        renderAll();
+      });
+
+      // Delete Snack Expense inside modal
+      document.getElementById('btn-delete-expense').addEventListener('click', () => {
+        const id = document.getElementById('expense-id').value;
+        if (!id) return;
+        openConfirm('지출 삭제', '이 지출 내역을 삭제하고 간식 예산으로 복원할까요?', () => {
+          state.expenses = state.expenses.filter(item => item.id !== id);
+          saveState();
+          closeExpenseModal();
+          renderAll();
+          showToast('삭제되어 예산에 복원되었습니다');
+        });
+      });
+
+      // Soju Form Submit
+      document.getElementById('soju-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const id = document.getElementById('soju-log-id').value;
+        const bottles = Math.round((Number(document.getElementById('soju-bottles').value) || 0) * 10) / 10;
+        const memo = document.getElementById('soju-memo').value.trim();
+        const date = document.getElementById('soju-date').value;
+
+        if (bottles <= 0 || !date) {
+          showToast('병 수와 날짜를 올바르게 입력해주세요');
+          return;
+        }
+
+        const logMonth = date.slice(0, 7);
+        if (logMonth < state.sojuSettings.startMonth) {
+          state.sojuSettings.startMonth = logMonth;
+        }
+
+        if (id) {
+          const idx = state.sojuLogs.findIndex(item => item.id === id);
+          if (idx !== -1) {
+            state.sojuLogs[idx] = { ...state.sojuLogs[idx], bottles, memo, date };
+          }
+          showToast('소주 기록이 수정되었습니다');
+        } else {
+          state.sojuLogs.push({
+            id: `soju-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            bottles,
+            memo: memo || `소주 ${formatBottles(bottles)}`,
+            date,
+            createdAt: Date.now()
+          });
+          showToast(`🍶 ${formatBottles(bottles)} 차감되었습니다`);
+        }
+
+        activeMonth = logMonth;
+        saveState();
+        closeSojuModal();
+        renderAll();
+      });
+
+      // Delete Soju Log inside modal
+      document.getElementById('btn-delete-soju').addEventListener('click', () => {
+        const id = document.getElementById('soju-log-id').value;
+        if (!id) return;
+        openConfirm('음주 기록 삭제', '이 기록을 삭제하고 잔여 소주에 복원할까요?', () => {
+          state.sojuLogs = state.sojuLogs.filter(item => item.id !== id);
+          saveState();
+          closeSojuModal();
+          renderAll();
+          showToast('삭제되어 잔여 소주에 복원되었습니다');
+        });
+      });
+
+      // Delegated clicks for category filter bar
+      document.getElementById('category-filter-bar').addEventListener('click', e => {
+        const btn = e.target.closest('[data-filter-cat]');
+        if (!btn) return;
+        activeCategoryFilter = btn.dataset.filterCat;
+        renderHome();
+      });
+
+      // Delegated clicks for list container (edit snack, edit soju, or load sample)
+      document.getElementById('expense-list-container').addEventListener('click', e => {
+        const editExpenseBtn = e.target.closest('[data-edit-expense]');
+        if (editExpenseBtn) {
+          openExpenseModal(editExpenseBtn.dataset.editExpense);
+          return;
+        }
+        const editSojuBtn = e.target.closest('[data-edit-soju]');
+        if (editSojuBtn) {
+          openSojuModal(editSojuBtn.dataset.editSoju);
+          return;
+        }
+      });
+
+      // Settings listeners
+      document.getElementById('btn-save-budget').addEventListener('click', () => {
+        const val = Math.max(0, Math.round(Number(document.getElementById('setting-monthly-budget').value) || 0));
+        state.settings.monthlyBudget = val;
+        saveState();
+        renderAll();
+        showToast(`월 간식 예산 ${formatWon(val)} 저장됨`);
+      });
+
+      document.querySelectorAll('.preset-budget-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = Number(btn.dataset.presetBudget);
+          document.getElementById('setting-monthly-budget').value = val;
+          state.settings.monthlyBudget = val;
+          saveState();
+          renderAll();
+          showToast(`월 간식 예산 ${formatWon(val)} 적용됨`);
+        });
+      });
+
+      document.getElementById('btn-save-soju-quota').addEventListener('click', () => {
+        const val = Math.max(0, Math.round((Number(document.getElementById('setting-soju-quota').value) || 0) * 10) / 10);
+        state.sojuSettings.monthlyQuota = val;
+        saveState();
+        renderAll();
+        showToast(`월 소주 허용량 ${formatBottles(val)} 저장됨`);
+      });
+
+      document.querySelectorAll('.preset-soju-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = Number(btn.dataset.presetSoju);
+          document.getElementById('setting-soju-quota').value = val;
+          state.sojuSettings.monthlyQuota = val;
+          saveState();
+          renderAll();
+          showToast(`월 소주 허용량 ${formatBottles(val)} 적용됨`);
+        });
+      });
+
+      document.getElementById('setting-start-month').addEventListener('change', e => {
+        if (!e.target.value) return;
+        if (activeMode === 'soju') {
+          state.sojuSettings.startMonth = e.target.value;
+        } else {
+          state.settings.startMonth = e.target.value;
+        }
+        saveState();
+        renderAll();
+        showToast('이월 누적 시작 월이 변경되었습니다');
+      });
+
+      document.getElementById('toggle-rollover').addEventListener('click', () => {
+        if (activeMode === 'soju') {
+          state.sojuSettings.rolloverEnabled = !state.sojuSettings.rolloverEnabled;
+          saveState();
+          renderAll();
+          showToast(state.sojuSettings.rolloverEnabled ? '소주 이월이 켜졌습니다' : '소주 이월이 꺼졌습니다');
+        } else {
+          state.settings.rolloverEnabled = !state.settings.rolloverEnabled;
+          saveState();
+          renderAll();
+          showToast(state.settings.rolloverEnabled ? '간식 예산 이월이 켜졌습니다' : '간식 예산 이월이 꺼졌습니다');
+        }
+      });
+
+      document.getElementById('toggle-deficit').addEventListener('click', () => {
+        if (activeMode === 'soju') {
+          state.sojuSettings.rolloverDeficit = !state.sojuSettings.rolloverDeficit;
+          saveState();
+          renderAll();
+          showToast(state.sojuSettings.rolloverDeficit ? '초과 음주도 다음 달에 차감됩니다' : '초과 음주는 다음 달 0병으로 초기화됩니다');
+        } else {
+          state.settings.rolloverDeficit = !state.settings.rolloverDeficit;
+          saveState();
+          renderAll();
+          showToast(state.settings.rolloverDeficit ? '초과 지출도 다음 달에 차감됩니다' : '초과 지출은 다음 달 0원으로 초기화됩니다');
+        }
+      });
+
+      document.getElementById('btn-save-cap').addEventListener('click', () => {
+        const raw = Number(document.getElementById('setting-rollover-cap').value) || 0;
+        if (activeMode === 'soju') {
+          const val = Math.max(0, Math.round(raw * 10) / 10);
+          state.sojuSettings.rolloverCap = val;
+          saveState();
+          renderAll();
+          showToast(val === 0 ? '소주 이월 한도 무제한으로 설정됨' : `소주 최대 이월 한도 ${formatBottles(val)} 적용됨`);
+        } else {
+          const val = Math.max(0, Math.round(raw));
+          state.settings.rolloverCap = val;
+          saveState();
+          renderAll();
+          showToast(val === 0 ? '간식 이월 한도 무제한으로 설정됨' : `간식 최대 이월 한도 ${formatWon(val)} 적용됨`);
+        }
+      });
+
+      // Export JSON
+      document.getElementById('btn-export-json').addEventListener('click', () => {
+        try {
+          const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `snack-soju-budget-backup-${getTodayDateString()}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showToast('백업 JSON 파일이 저장되었습니다');
+        } catch (err) {
+          showToast('파일 저장을 지원하지 않는 환경입니다');
+        }
+      });
+
+      // Import JSON
+      document.getElementById('input-import-json').addEventListener('change', e => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          try {
+            const parsed = JSON.parse(ev.target.result);
+            if (!parsed || typeof parsed !== 'object' || !parsed.settings) {
+              showToast('올바른 백업 파일 형식이 아닙니다');
+              return;
+            }
+            const def = createDefaultState();
+            state = {
+              settings: Object.assign({}, def.settings, parsed.settings || {}),
+              monthlyOverrides: parsed.monthlyOverrides || {},
+              expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
+              sojuSettings: Object.assign({}, def.sojuSettings, parsed.sojuSettings || {}),
+              sojuOverrides: parsed.sojuOverrides || {},
+              sojuLogs: Array.isArray(parsed.sojuLogs) ? parsed.sojuLogs : []
+            };
+            saveState();
+            renderAll();
+            showToast('백업 데이터를 불러왔습니다');
+          } catch (err) {
+            showToast('파일을 읽는 중 오류가 발생했습니다');
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      });
+
+      document.getElementById('btn-reset-all').addEventListener('click', () => {
+        openConfirm('모든 기록 초기화', '간식 예산과 소주 기록이 모두 처음 상태로 돌아갑니다. 계속할까요?', () => {
+          state = createDefaultState();
+          activeMonth = getTodayMonthKey();
+          activeCategoryFilter = 'all';
+          saveState();
+          renderAll();
+          showToast('모든 기록이 초기화되었습니다');
+        });
+      });
+
+      // Confirm modal buttons
+      document.getElementById('btn-confirm-cancel').addEventListener('click', closeConfirm);
+      document.getElementById('btn-confirm-ok').addEventListener('click', () => {
+        const cb = confirmCallback;
+        closeConfirm();
+        if (typeof cb === 'function') cb();
+      });
+
+      // Initial render
+      renderAll();
+    })();
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js').catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>
