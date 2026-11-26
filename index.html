@@ -90,7 +90,10 @@
           </div>
           <div>
             <h1 id="header-title" class="text-[15px] font-bold tracking-tight text-[#191F28] leading-tight">간식 예산</h1>
-            <p id="header-rollover-status" class="text-[11px] font-medium text-emerald-600 leading-tight">이월 자동 적용 중</p>
+            <div class="flex items-center gap-1.5">
+              <p id="header-rollover-status" class="text-[11px] font-medium text-emerald-600 leading-tight">이월 자동 적용 중</p>
+              <button id="header-sync-pill" type="button" class="hidden px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold leading-none">공유중</button>
+            </div>
           </div>
         </div>
 
@@ -377,6 +380,49 @@
           </div>
         </div>
 
+        <!-- Real-Time Friend Sync (Firebase) -->
+        <div class="bg-white rounded-3xl p-5 shadow-[0_2px_12px_rgba(15,23,42,0.04)] border border-slate-100 space-y-3.5">
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-sm font-bold text-[#191F28] flex items-center gap-1.5">
+              <i data-lucide="users" class="w-4 h-4 text-[#3182F6]"></i>
+              친구와 실시간 공유
+            </h2>
+            <span id="sync-status-badge" class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500">미연결</span>
+          </div>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            같은 Firebase 주소와 방 코드를 입력하면 친구가 차감한 간식·소주 내역이 내 앱에도 실시간 반영됩니다.
+          </p>
+
+          <div>
+            <label for="sync-db-url" class="block text-xs font-semibold text-slate-600 mb-1">Firebase Realtime DB 주소</label>
+            <input id="sync-db-url" type="url" placeholder="https://내프로젝트-default-rtdb.firebaseio.com" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#3182F6] focus:bg-white" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label for="sync-room-code" class="block text-xs font-semibold text-slate-600 mb-1">공유 방 코드</label>
+              <input id="sync-room-code" type="text" maxlength="30" placeholder="예: soju-2026" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#3182F6] focus:bg-white" />
+            </div>
+            <div>
+              <label for="sync-nickname" class="block text-xs font-semibold text-slate-600 mb-1">내 이름 (선택)</label>
+              <input id="sync-nickname" type="text" maxlength="12" placeholder="예: 현정" class="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#3182F6] focus:bg-white" />
+            </div>
+          </div>
+
+          <div class="flex gap-2 pt-1">
+            <button id="btn-sync-connect" type="button" class="flex-1 py-2.5 px-3 rounded-xl bg-[#3182F6] hover:bg-[#1B64DA] text-white text-xs font-bold transition">
+              실시간 공유 연결
+            </button>
+            <button id="btn-sync-now" type="button" class="hidden px-3 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition">
+              새로고침
+            </button>
+            <button id="btn-sync-disconnect" type="button" class="hidden px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition">
+              해제
+            </button>
+          </div>
+          <p id="sync-error-msg" class="hidden text-[11px] font-medium text-rose-600"></p>
+        </div>
+
         <!-- Data Backup & Demo -->
         <div class="bg-white rounded-3xl p-5 shadow-[0_2px_12px_rgba(15,23,42,0.04)] border border-slate-100 space-y-2.5">
           <h2 class="text-sm font-bold text-[#191F28] mb-2">데이터 관리 (간식 + 소주 통합)</h2>
@@ -590,6 +636,14 @@
       'use strict';
 
       const STORAGE_KEY = 'snack_and_soju_rollover_v3';
+      const SYNC_CONFIG_KEY = 'snack_and_soju_sync_cfg_v1';
+
+      // GitHub 코드에 미리 주소를 적어두면 친구가 따로 입력하지 않아도 자동 연결됩니다
+      const DEFAULT_SYNC_CONFIG = {
+        dbUrl: '',
+        roomCode: '',
+        nickname: ''
+      };
       const LEGACY_STORAGE_KEY = 'monthly_rollover_budget_v1';
 
       const CATEGORIES = [
@@ -679,7 +733,8 @@
             rolloverCap: 0
           },
           sojuOverrides: {},
-          sojuLogs: []
+          sojuLogs: [],
+          updatedAt: 0
         };
       }
 
@@ -699,18 +754,183 @@
             expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
             sojuSettings: Object.assign({}, def.sojuSettings, parsed.sojuSettings || {}),
             sojuOverrides: parsed.sojuOverrides || {},
-            sojuLogs: Array.isArray(parsed.sojuLogs) ? parsed.sojuLogs : []
+            sojuLogs: Array.isArray(parsed.sojuLogs) ? parsed.sojuLogs : [],
+            updatedAt: Number(parsed.updatedAt) || 0
           };
         } catch (e) {
           return def;
         }
       }
 
-      function saveState() {
+      function loadSyncConfig() {
+        try {
+          const raw = localStorage.getItem(SYNC_CONFIG_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            return {
+              enabled: Boolean(parsed.enabled && parsed.dbUrl && parsed.roomCode),
+              dbUrl: (parsed.dbUrl || '').trim().replace(/\/+$/, ''),
+              roomCode: (parsed.roomCode || '').trim(),
+              nickname: (parsed.nickname || '').trim()
+            };
+          }
+        } catch (e) {}
+        if (DEFAULT_SYNC_CONFIG.dbUrl && DEFAULT_SYNC_CONFIG.roomCode) {
+          return {
+            enabled: true,
+            dbUrl: DEFAULT_SYNC_CONFIG.dbUrl.trim().replace(/\/+$/, ''),
+            roomCode: DEFAULT_SYNC_CONFIG.roomCode.trim(),
+            nickname: (DEFAULT_SYNC_CONFIG.nickname || '').trim()
+          };
+        }
+        return { enabled: false, dbUrl: '', roomCode: '', nickname: '' };
+      }
+
+      function saveSyncConfig() {
+        try {
+          localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig));
+        } catch (e) {}
+      }
+
+      let syncConfig = loadSyncConfig();
+      let syncPollTimer = null;
+      let syncStateStatus = syncConfig.enabled ? 'connected' : 'off'; // 'off' | 'connected' | 'error'
+      let syncLastError = '';
+      let isSyncBusy = false;
+
+      function getSyncEndpoint() {
+        if (!syncConfig.dbUrl || !syncConfig.roomCode) return '';
+        const cleanUrl = syncConfig.dbUrl.replace(/\/+$/, '');
+        const safeRoom = encodeURIComponent(syncConfig.roomCode.replace(/[.#$\[\]\/]/g, '_'));
+        return `${cleanUrl}/rooms/${safeRoom}.json`;
+      }
+
+      async function pushStateToCloud() {
+        if (!syncConfig.enabled) return;
+        const url = getSyncEndpoint();
+        if (!url || !url.startsWith('https://')) return;
+        try {
+          const res = await fetch(url, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(state)
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          syncStateStatus = 'connected';
+          syncLastError = '';
+          updateSyncIndicators();
+        } catch (err) {
+          syncStateStatus = 'error';
+          syncLastError = '동기화 실패: Firebase 주소 또는 읽기/쓰기 규칙을 확인해 주세요.';
+          updateSyncIndicators();
+        }
+      }
+
+      async function pullStateFromCloud(forceApply = false) {
+        if (!syncConfig.enabled || isSyncBusy) return;
+        const url = getSyncEndpoint();
+        if (!url || !url.startsWith('https://')) return;
+        isSyncBusy = true;
+        try {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const remote = await res.json();
+          syncStateStatus = 'connected';
+          syncLastError = '';
+
+          if (remote && typeof remote === 'object' && remote.settings) {
+            const remoteTs = Number(remote.updatedAt) || 0;
+            const localTs = Number(state.updatedAt) || 0;
+            if (forceApply || remoteTs > localTs) {
+              const def = createDefaultState();
+              state = {
+                settings: Object.assign({}, def.settings, remote.settings || {}),
+                monthlyOverrides: remote.monthlyOverrides || {},
+                expenses: Array.isArray(remote.expenses) ? remote.expenses : [],
+                sojuSettings: Object.assign({}, def.sojuSettings, remote.sojuSettings || {}),
+                sojuOverrides: remote.sojuOverrides || {},
+                sojuLogs: Array.isArray(remote.sojuLogs) ? remote.sojuLogs : [],
+                updatedAt: remoteTs || Date.now()
+              };
+              try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+              } catch (e) {}
+              renderAll();
+            }
+          } else if (forceApply) {
+            state.updatedAt = Date.now();
+            await pushStateToCloud();
+          }
+          updateSyncIndicators();
+        } catch (err) {
+          syncStateStatus = 'error';
+          syncLastError = '연결 오류: Firebase DB 주소와 권한 규칙(read/write)을 확인해 주세요.';
+          updateSyncIndicators();
+        } finally {
+          isSyncBusy = false;
+        }
+      }
+
+      function startSyncPolling() {
+        if (syncPollTimer) {
+          clearInterval(syncPollTimer);
+          syncPollTimer = null;
+        }
+        if (syncConfig.enabled) {
+          pullStateFromCloud(false);
+          syncPollTimer = setInterval(() => {
+            if (!document.hidden) pullStateFromCloud(false);
+          }, 4000);
+        }
+      }
+
+      function updateSyncIndicators() {
+        const pill = document.getElementById('header-sync-pill');
+        const badge = document.getElementById('sync-status-badge');
+        const errEl = document.getElementById('sync-error-msg');
+        const nowBtn = document.getElementById('btn-sync-now');
+        const discBtn = document.getElementById('btn-sync-disconnect');
+
+        if (!syncConfig.enabled) {
+          pill.classList.add('hidden');
+          badge.textContent = '미연결';
+          badge.className = 'px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500';
+          errEl.classList.add('hidden');
+          nowBtn.classList.add('hidden');
+          discBtn.classList.add('hidden');
+          return;
+        }
+
+        nowBtn.classList.remove('hidden');
+        discBtn.classList.remove('hidden');
+
+        if (syncStateStatus === 'error') {
+          pill.classList.remove('hidden');
+          pill.textContent = '공유 오류';
+          pill.className = 'px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-600 text-[10px] font-bold leading-none';
+          badge.textContent = '연결 오류';
+          badge.className = 'px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-600';
+          errEl.textContent = syncLastError;
+          errEl.classList.remove('hidden');
+        } else {
+          pill.classList.remove('hidden');
+          pill.textContent = `공유 · ${syncConfig.roomCode}`;
+          pill.className = 'px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold leading-none';
+          badge.textContent = '실시간 공유 중';
+          badge.className = 'px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700';
+          errEl.classList.add('hidden');
+        }
+      }
+
+      function saveState(skipCloud = false) {
+        state.updatedAt = Date.now();
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         } catch (e) {
           // In-memory state continues working
+        }
+        if (!skipCloud && syncConfig.enabled) {
+          pushStateToCloud();
         }
       }
 
@@ -876,6 +1096,8 @@
           snackBtn.className = 'mode-switch-btn py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-white text-[#3182F6] shadow-sm transition';
           sojuBtn.className = 'mode-switch-btn py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-700 transition';
         }
+
+        updateSyncIndicators();
 
         // Update active nav tab accent color
         document.querySelectorAll('.nav-tab').forEach(btn => {
@@ -1089,7 +1311,7 @@
                   </div>
                   <div class="min-w-0">
                     <div class="text-sm font-semibold text-[#191F28] truncate">${safeMemo}</div>
-                    <div class="text-[11px] text-slate-400">${cat.label}</div>
+                    <div class="text-[11px] text-slate-400">${cat.label}${item.by ? ` · ${escapeHtml(item.by)}` : ''}</div>
                   </div>
                 </div>
                 <div class="text-sm font-bold text-[#191F28] tabular-nums flex-shrink-0">
@@ -1157,7 +1379,7 @@
                   </div>
                   <div class="min-w-0">
                     <div class="text-sm font-semibold text-[#191F28] truncate">${safeMemo}</div>
-                    <div class="text-[11px] text-slate-400">눌러서 수정 또는 삭제</div>
+                    <div class="text-[11px] text-slate-400">${item.by ? `${escapeHtml(item.by)} 기록 · ` : ''}눌러서 수정 또는 삭제</div>
                   </div>
                 </div>
                 <div class="text-sm font-bold text-emerald-700 tabular-nums flex-shrink-0">
@@ -1429,6 +1651,11 @@
           setToggleUI('toggle-rollover', state.settings.rolloverEnabled, false);
           setToggleUI('toggle-deficit', state.settings.rolloverDeficit, false);
         }
+
+        document.getElementById('sync-db-url').value = syncConfig.dbUrl || '';
+        document.getElementById('sync-room-code').value = syncConfig.roomCode || '';
+        document.getElementById('sync-nickname').value = syncConfig.nickname || '';
+        updateSyncIndicators();
       }
 
       function setToggleUI(id, checked, isSoju = false) {
@@ -1576,6 +1803,7 @@
           bottles: 1,
           memo: '소주 1병',
           date,
+          by: syncConfig.nickname || '',
           createdAt: Date.now()
         });
 
@@ -1745,6 +1973,7 @@
             memo,
             date,
             category: selectedModalCategory,
+            by: syncConfig.nickname || '',
             createdAt: Date.now()
           });
           showToast(`${formatWon(amount)} 차감되었습니다`);
@@ -1799,6 +2028,7 @@
             bottles,
             memo: memo || `소주 ${formatBottles(bottles)}`,
             date,
+            by: syncConfig.nickname || '',
             createdAt: Date.now()
           });
           showToast(`🍶 ${formatBottles(bottles)} 차감되었습니다`);
@@ -2010,8 +2240,67 @@
         if (typeof cb === 'function') cb();
       });
 
-      // Initial render
+      // Sync event listeners
+      document.getElementById('header-sync-pill').addEventListener('click', () => {
+        switchTab('settings');
+      });
+
+      document.getElementById('btn-sync-connect').addEventListener('click', async () => {
+        const dbUrl = document.getElementById('sync-db-url').value.trim().replace(/\/+$/, '');
+        const roomCode = document.getElementById('sync-room-code').value.trim();
+        const nickname = document.getElementById('sync-nickname').value.trim();
+
+        if (!dbUrl || !dbUrl.startsWith('https://')) {
+          showToast('https:// 로 시작하는 Firebase DB 주소를 입력해주세요');
+          return;
+        }
+        if (!roomCode) {
+          showToast('친구와 맞출 공유 방 코드를 입력해주세요');
+          return;
+        }
+
+        syncConfig = { enabled: true, dbUrl, roomCode, nickname };
+        syncStateStatus = 'connected';
+        saveSyncConfig();
+        updateSyncIndicators();
+        showToast('공유 방에 연결하는 중...');
+        await pullStateFromCloud(true);
+        startSyncPolling();
+        if (syncStateStatus === 'connected') {
+          showToast(`'${roomCode}' 방과 실시간 연결되었습니다`);
+        }
+      });
+
+      document.getElementById('btn-sync-now').addEventListener('click', async () => {
+        await pullStateFromCloud(true);
+        if (syncStateStatus === 'connected') {
+          showToast('최신 기록을 불러왔습니다');
+        }
+      });
+
+      document.getElementById('btn-sync-disconnect').addEventListener('click', () => {
+        syncConfig.enabled = false;
+        syncStateStatus = 'off';
+        if (syncPollTimer) {
+          clearInterval(syncPollTimer);
+          syncPollTimer = null;
+        }
+        saveSyncConfig();
+        updateSyncIndicators();
+        showToast('실시간 공유가 해제되었습니다 (내 기기만 저장)');
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && syncConfig.enabled) {
+          pullStateFromCloud(false);
+        }
+      });
+
+      // Initial render & sync startup
       renderAll();
+      if (syncConfig.enabled) {
+        startSyncPolling();
+      }
     })();
   </script>
 
