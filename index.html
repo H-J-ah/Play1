@@ -841,7 +841,7 @@
           if (remote && typeof remote === 'object' && remote.settings) {
             const remoteTs = Number(remote.updatedAt) || 0;
             const localTs = Number(state.updatedAt) || 0;
-            if (forceApply || remoteTs > localTs) {
+            if (forceApply || remoteTs !== localTs) {
               const def = createDefaultState();
               state = {
                 settings: Object.assign({}, def.settings, remote.settings || {}),
@@ -935,9 +935,11 @@
       }
 
       let state = loadState();
-      let activeMode = 'snack'; // 'snack' | 'soju'
-      let activeMonth = getTodayMonthKey();
-      let activeTab = 'home';
+      let savedView = {};
+      try { savedView = JSON.parse(localStorage.getItem('snack_soju_view_v1') || '{}'); } catch (e) {}
+      let activeMode = savedView.mode === 'soju' ? 'soju' : 'snack';
+      let activeMonth = savedView.month || getTodayMonthKey();
+      let activeTab = ['home', 'analytics', 'settings'].includes(savedView.tab) ? savedView.tab : 'home';
       let activeCategoryFilter = 'all';
       let selectedModalCategory = 'snack';
       let confirmCallback = null;
@@ -1674,6 +1676,12 @@
 
       // Master Render
       function renderAll() {
+        try {
+          localStorage.setItem('snack_soju_view_v1', JSON.stringify({ mode: activeMode, tab: activeTab, month: activeMonth }));
+        } catch (e) {}
+        ['home', 'analytics', 'settings'].forEach(t => {
+          document.getElementById(`view-${t}`).classList.toggle('hidden', t !== activeTab);
+        });
         renderHeader();
         if (activeTab === 'home') renderHome();
         if (activeTab === 'analytics') renderAnalytics();
