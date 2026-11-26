@@ -83,29 +83,29 @@
 
     <!-- Top Header -->
     <header class="sticky top-0 z-20 bg-[#F4F6F8]/95 backdrop-blur-md px-4 pt-3.5 pb-3 border-b border-slate-200/70 space-y-2.5">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div id="header-icon-box" class="w-8 h-8 rounded-xl bg-[#3182F6] text-white flex items-center justify-center shadow-sm transition-colors">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <div id="header-icon-box" class="w-8 h-8 rounded-xl bg-[#3182F6] text-white flex items-center justify-center shadow-sm transition-colors shrink-0">
             <span id="header-emoji" class="text-base leading-none">🍪</span>
           </div>
-          <div>
-            <h1 id="header-title" class="text-[15px] font-bold tracking-tight text-[#191F28] leading-tight">간식 예산</h1>
+          <div class="min-w-0">
             <div class="flex items-center gap-1.5">
-              <p id="header-rollover-status" class="text-[11px] font-medium text-emerald-600 leading-tight">이월 자동 적용 중</p>
-              <button id="header-sync-pill" type="button" class="hidden px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold leading-none">공유중</button>
+              <h1 id="header-title" class="text-[15px] font-bold tracking-tight text-[#191F28] leading-tight whitespace-nowrap">간식 예산</h1>
+              <button id="header-sync-pill" type="button" style="white-space: nowrap;" class="hidden px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold leading-none shrink-0">공유중</button>
             </div>
+            <p id="header-rollover-status" class="text-[11px] font-medium text-emerald-600 leading-tight whitespace-nowrap">이월 자동 적용 중</p>
           </div>
         </div>
 
         <!-- Month Navigator -->
-        <div class="flex items-center gap-1 bg-white rounded-full px-1.5 py-1 shadow-sm border border-slate-200/80">
-          <button id="btn-prev-month" type="button" aria-label="이전 달" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition">
+        <div class="flex items-center gap-0.5 bg-white rounded-full px-1 py-1 shadow-sm border border-slate-200/80 shrink-0">
+          <button id="btn-prev-month" type="button" aria-label="이전 달" class="w-6 h-6 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition">
             <i data-lucide="chevron-left" class="w-4 h-4"></i>
           </button>
-          <button id="btn-current-month" type="button" title="오늘 달로 이동" class="px-2 py-0.5 text-[13px] font-bold text-[#191F28] tabular-nums hover:text-[#3182F6] transition">
+          <button id="btn-current-month" type="button" title="오늘 달로 이동" class="px-1.5 py-0.5 text-[12px] font-bold text-[#191F28] tabular-nums hover:text-[#3182F6] transition whitespace-nowrap">
             2026년 11월
           </button>
-          <button id="btn-next-month" type="button" aria-label="다음 달" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition">
+          <button id="btn-next-month" type="button" aria-label="다음 달" class="w-6 h-6 rounded-full flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition">
             <i data-lucide="chevron-right" class="w-4 h-4"></i>
           </button>
         </div>
