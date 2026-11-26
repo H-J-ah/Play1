@@ -421,6 +421,14 @@
             </button>
           </div>
           <p id="sync-error-msg" class="hidden text-[11px] font-medium text-rose-600"></p>
+          <!-- Connected Members List -->
+          <div id="sync-members-box" class="hidden pt-3 border-t border-slate-100 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-700">연결된 멤버</span>
+              <span id="sync-members-count" class="text-[11px] font-semibold text-emerald-600">0명</span>
+            </div>
+            <div id="sync-members-list" class="flex flex-wrap gap-1.5"></div>
+          </div>
         </div>
 
         <!-- Data Backup & Demo -->
@@ -792,17 +800,113 @@
         } catch (e) {}
       }
 
+      function getOrCreateDeviceId() {
+        const key = 'snack_soju_device_id_v1';
+        try {
+          let id = localStorage.getItem(key);
+          if (!id) {
+            id = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+            localStorage.setItem(key, id);
+          }
+          return id;
+        } catch (e) {
+          return 'dev_' + Math.random().toString(36).slice(2, 9);
+        }
+      }
+
+      const myDeviceId = getOrCreateDeviceId();
       let syncConfig = loadSyncConfig();
       let syncPollTimer = null;
-      let syncStateStatus = syncConfig.enabled ? 'connected' : 'off'; // 'off' | 'connected' | 'error'
+      let syncPresenceTimer = null;
+      let syncStateStatus = syncConfig.enabled ? 'connected' : 'off';
       let syncLastError = '';
       let isSyncBusy = false;
+      let connectedMembers = {};
 
-      function getSyncEndpoint() {
+      function toSafeArray(val) {
+        if (Array.isArray(val)) return val.filter(Boolean);
+        if (val && typeof val === 'object') return Object.values(val).filter(Boolean);
+        return [];
+      }
+
+      function getSyncBaseRoomPath() {
         if (!syncConfig.dbUrl || !syncConfig.roomCode) return '';
         const cleanUrl = syncConfig.dbUrl.replace(/\/+$/, '');
         const safeRoom = encodeURIComponent(syncConfig.roomCode.replace(/[.#$\[\]\/]/g, '_'));
-        return `${cleanUrl}/rooms/${safeRoom}.json`;
+        return `${cleanUrl}/rooms/${safeRoom}`;
+      }
+
+      function getSyncEndpoint() {
+        const base = getSyncBaseRoomPath();
+        return base ? `${base}.json` : '';
+      }
+
+      async function sendPresenceHeartbeat() {
+        if (!syncConfig.enabled) return;
+        const base = getSyncBaseRoomPath();
+        if (!base || !base.startsWith('https://')) return;
+        try {
+          const payload = { name: syncConfig.nickname || '이름 미설정', lastSeen: Date.now() };
+          await fetch(`${base}/members/${myDeviceId}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          connectedMembers[myDeviceId] = payload;
+          renderConnectedMembers();
+        } catch (e) {}
+      }
+
+      function formatRelativeTime(ts) {
+        const diffSec = Math.max(0, Math.floor((Date.now() - (Number(ts) || 0)) / 1000));
+        if (diffSec < 35) return '접속 중';
+        if (diffSec < 60) return `${diffSec}초 전`;
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) return `${diffMin}분 전`;
+        const diffHr = Math.floor(diffMin / 60);
+        if (diffHr < 24) return `${diffHr}시간 전`;
+        return `${Math.floor(diffHr / 24)}일 전`;
+      }
+
+      function renderConnectedMembers() {
+        const box = document.getElementById('sync-members-box');
+        const listEl = document.getElementById('sync-members-list');
+        const countEl = document.getElementById('sync-members-count');
+        if (!box || !listEl || !countEl) return;
+
+        if (!syncConfig.enabled) {
+          box.classList.add('hidden');
+          return;
+        }
+
+        const now = Date.now();
+        const entries = Object.keys(connectedMembers || {})
+          .map(id => ({ id, ...(connectedMembers[id] || {}) }))
+          .filter(m => m.lastSeen && (now - m.lastSeen) < 30 * 24 * 60 * 60 * 1000)
+          .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
+
+        box.classList.remove('hidden');
+        countEl.textContent = `${entries.length}명`;
+
+        if (entries.length === 0) {
+          listEl.innerHTML = '<span class="text-[11px] text-slate-400">연결 확인 중...</span>';
+          return;
+        }
+
+        listEl.innerHTML = entries.map(m => {
+          const isOnline = (now - (m.lastSeen || 0)) < 35000;
+          const isMe = m.id === myDeviceId;
+          const label = escapeHtml(m.name || '이름 미설정') + (isMe ? ' (나)' : '');
+          return `
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+              isOnline ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'
+            }">
+              <span class="w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
+              <span>${label}</span>
+              <span class="text-[10px] opacity-75">${formatRelativeTime(m.lastSeen)}</span>
+            </span>
+          `;
+        }).join('');
       }
 
       async function pushStateToCloud() {
@@ -811,13 +915,14 @@
         if (!url || !url.startsWith('https://')) return;
         try {
           const res = await fetch(url, {
-            method: 'PUT',
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(state)
           });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           syncStateStatus = 'connected';
           syncLastError = '';
+          sendPresenceHeartbeat();
           updateSyncIndicators();
         } catch (err) {
           syncStateStatus = 'error';
@@ -832,30 +937,37 @@
         if (!url || !url.startsWith('https://')) return;
         isSyncBusy = true;
         try {
-          const res = await fetch(url, { cache: 'no-store' });
+          const res = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store' });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const remote = await res.json();
           syncStateStatus = 'connected';
           syncLastError = '';
 
-          if (remote && typeof remote === 'object' && remote.settings) {
-            const remoteTs = Number(remote.updatedAt) || 0;
-            const localTs = Number(state.updatedAt) || 0;
-            if (forceApply || remoteTs !== localTs) {
-              const def = createDefaultState();
-              state = {
-                settings: Object.assign({}, def.settings, remote.settings || {}),
-                monthlyOverrides: remote.monthlyOverrides || {},
-                expenses: Array.isArray(remote.expenses) ? remote.expenses : [],
-                sojuSettings: Object.assign({}, def.sojuSettings, remote.sojuSettings || {}),
-                sojuOverrides: remote.sojuOverrides || {},
-                sojuLogs: Array.isArray(remote.sojuLogs) ? remote.sojuLogs : [],
-                updatedAt: remoteTs || Date.now()
-              };
-              try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-              } catch (e) {}
-              renderAll();
+          if (remote && typeof remote === 'object') {
+            if (remote.members && typeof remote.members === 'object') {
+              connectedMembers = remote.members;
+              renderConnectedMembers();
+            }
+            if (remote.settings) {
+              const remoteTs = Number(remote.updatedAt) || 0;
+              const localTs = Number(state.updatedAt) || 0;
+              if (forceApply || remoteTs !== localTs) {
+                const def = createDefaultState();
+                state = {
+                  settings: Object.assign({}, def.settings, remote.settings || {}),
+                  monthlyOverrides: remote.monthlyOverrides || {},
+                  expenses: toSafeArray(remote.expenses),
+                  sojuSettings: Object.assign({}, def.sojuSettings, remote.sojuSettings || {}),
+                  sojuOverrides: remote.sojuOverrides || {},
+                  sojuLogs: toSafeArray(remote.sojuLogs),
+                  updatedAt: remoteTs || Date.now()
+                };
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+                renderAll();
+              }
+            } else if (forceApply) {
+              state.updatedAt = Date.now();
+              await pushStateToCloud();
             }
           } else if (forceApply) {
             state.updatedAt = Date.now();
@@ -872,15 +984,13 @@
       }
 
       function startSyncPolling() {
-        if (syncPollTimer) {
-          clearInterval(syncPollTimer);
-          syncPollTimer = null;
-        }
+        if (syncPollTimer) { clearInterval(syncPollTimer); syncPollTimer = null; }
+        if (syncPresenceTimer) { clearInterval(syncPresenceTimer); syncPresenceTimer = null; }
         if (syncConfig.enabled) {
+          sendPresenceHeartbeat();
           pullStateFromCloud(false);
-          syncPollTimer = setInterval(() => {
-            if (!document.hidden) pullStateFromCloud(false);
-          }, 4000);
+          syncPollTimer = setInterval(() => { if (!document.hidden) pullStateFromCloud(false); }, 4000);
+          syncPresenceTimer = setInterval(() => { if (!document.hidden) sendPresenceHeartbeat(); }, 15000);
         }
       }
 
@@ -914,7 +1024,9 @@
           errEl.classList.remove('hidden');
         } else {
           pill.classList.remove('hidden');
-          pill.textContent = `공유 · ${syncConfig.roomCode}`;
+          const memberCount = Object.keys(connectedMembers || {}).length;
+          pill.textContent = memberCount > 1 ? `공유 · ${memberCount}명` : `공유 · ${syncConfig.roomCode}`;
+          renderConnectedMembers();
           pill.className = 'px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold leading-none';
           badge.textContent = '실시간 공유 중';
           badge.className = 'px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700';
@@ -2293,6 +2405,11 @@
           clearInterval(syncPollTimer);
           syncPollTimer = null;
         }
+        if (syncPresenceTimer) {
+          clearInterval(syncPresenceTimer);
+          syncPresenceTimer = null;
+        }
+        connectedMembers = {};
         saveSyncConfig();
         updateSyncIndicators();
         showToast('실시간 공유가 해제되었습니다 (내 기기만 저장)');
