@@ -285,13 +285,13 @@
 
         <!-- Soju Action Buttons (Visible in Soju Mode) -->
         <div id="soju-action-area" class="hidden flex gap-2">
-          <button id="btn-drink-one-soju" type="button" class="flex-1 py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-[15px] shadow-sm shadow-emerald-600/20 flex items-center justify-center gap-2 transition">
-            <span class="text-lg leading-none">🍶</span>
-            <span>소주 1병 차감 (-1병)</span>
+          <button id="btn-open-add-soju" type="button" class="flex-1 py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-[15px] shadow-sm shadow-emerald-600/20 flex items-center justify-center gap-2 transition">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+            <span>소주 음주 차감하기</span>
           </button>
-          <button id="btn-open-add-soju" type="button" class="px-4 py-3.5 rounded-2xl bg-white hover:bg-slate-50 active:scale-[0.98] text-emerald-700 font-bold text-xs border border-emerald-200 shadow-sm flex items-center justify-center gap-1 transition whitespace-nowrap">
-            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
-            직접 입력
+          <button id="btn-drink-one-soju" type="button" title="빠르게 1병 바로 차감" class="px-3.5 py-3.5 rounded-2xl bg-white hover:bg-slate-50 active:scale-[0.98] text-emerald-700 font-bold text-xs border border-emerald-200 shadow-sm flex items-center justify-center gap-1 transition whitespace-nowrap">
+            <span>🍶</span>
+            <span>-1병</span>
           </button>
         </div>
 
@@ -672,10 +672,18 @@
           </div>
         </div>
 
+        <!-- Anju Category Chips -->
+        <div>
+          <span class="block text-xs font-semibold text-slate-500 mb-1.5">안주 종류</span>
+          <div id="modal-anju-grid" class="grid grid-cols-4 gap-2">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
         <!-- Memo & Date -->
         <div class="grid grid-cols-5 gap-2">
           <div class="col-span-3">
-            <label for="soju-memo" class="block text-xs font-semibold text-slate-500 mb-1.5">메모 (선택)</label>
+            <label for="soju-memo" class="block text-xs font-semibold text-slate-500 mb-1.5">내용 (선택)</label>
             <input id="soju-memo" type="text" maxlength="40" placeholder="예: 삼겹살에 한 병" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white" />
           </div>
           <div class="col-span-2">
@@ -758,12 +766,23 @@
 
       const CATEGORIES = [
         { id: 'snack', label: '과자', emoji: '🍪', color: '#3182F6' },
-        { id: 'cafe', label: '카페/음료', emoji: '☕', color: '#8B5CF6' },
-        { id: 'dessert', label: '디저트', emoji: '🍰', color: '#EC4899' },
-        { id: 'cvs', label: '편의점', emoji: '🏪', color: '#0EA5E9' },
-        { id: 'bakery', label: '빵/베이커리', emoji: '🥐', color: '#F59E0B' },
         { id: 'icecream', label: '아이스크림', emoji: '🍦', color: '#10B981' },
-        { id: 'delivery', label: '배달간식', emoji: '🍗', color: '#EF4444' },
+        { id: 'jelly', label: '젤리', emoji: '🍬', color: '#F43F5E' },
+        { id: 'dessert', label: '디저트', emoji: '🍰', color: '#EC4899' },
+        { id: 'chocolate', label: '초콜릿', emoji: '🍫', color: '#8B5CF6' },
+        { id: 'bakery', label: '빵/베이커리', emoji: '🥐', color: '#F59E0B' },
+        { id: 'drink', label: '음료/카페', emoji: '☕', color: '#0EA5E9' },
+        { id: 'etc', label: '기타', emoji: '📌', color: '#64748B' }
+      ];
+
+      const ANJU_CATEGORIES = [
+        { id: 'chicken', label: '치킨', emoji: '🍗', color: '#F59E0B' },
+        { id: 'samgyeopsal', label: '삼겹살', emoji: '🥓', color: '#EF4444' },
+        { id: 'jokbal', label: '족발', emoji: '🍖', color: '#D97706' },
+        { id: 'pizza', label: '피자', emoji: '🍕', color: '#F97316' },
+        { id: 'chinese', label: '중국음식', emoji: '🥟', color: '#E11D48' },
+        { id: 'seafood', label: '회/해산물', emoji: '🐟', color: '#0EA5E9' },
+        { id: 'pocha', label: '포차/전', emoji: '🥘', color: '#10B981' },
         { id: 'etc', label: '기타', emoji: '📌', color: '#64748B' }
       ];
 
@@ -1156,6 +1175,7 @@
       let activeTab = ['home', 'analytics', 'settings'].includes(savedView.tab) ? savedView.tab : 'home';
       let activeCategoryFilter = 'all';
       let selectedModalCategory = 'snack';
+      let selectedModalAnju = 'chicken';
       let confirmCallback = null;
       let monthlyChartInstance = null;
       let categoryChartInstance = null;
@@ -1440,27 +1460,29 @@
         // Toggle Action Areas & Category Filters
         document.getElementById('snack-action-area').classList.toggle('hidden', isSoju);
         document.getElementById('soju-action-area').classList.toggle('hidden', !isSoju);
-        document.getElementById('category-filter-bar').classList.toggle('hidden', isSoju);
+        document.getElementById('category-filter-bar').classList.remove('hidden');
         document.getElementById('history-section-title').textContent = isSoju ? '소주 음주 기록' : '간식 지출 내역';
 
+        renderCategoryFilters();
         if (isSoju) {
           renderSojuList();
         } else {
-          renderCategoryFilters();
           renderExpenseList();
         }
       }
 
       function renderCategoryFilters() {
         const container = document.getElementById('category-filter-bar');
-        const monthExpenses = getExpensesForMonth(activeMonth);
-        if (monthExpenses.length === 0) {
+        const isSoju = activeMode === 'soju';
+        const items = isSoju ? getSojuLogsForMonth(activeMonth) : getExpensesForMonth(activeMonth);
+        const catSource = isSoju ? ANJU_CATEGORIES : CATEGORIES;
+        if (items.length === 0) {
           container.innerHTML = '';
           return;
         }
 
         const chips = [{ id: 'all', label: '전체', emoji: '' }].concat(
-          CATEGORIES.filter(c => monthExpenses.some(e => e.category === c.id))
+          catSource.filter(c => items.some(e => (e.category || 'etc') === c.id))
         );
 
         if (!chips.some(c => c.id === activeCategoryFilter)) {
@@ -1553,18 +1575,23 @@
 
       function renderSojuList() {
         const container = document.getElementById('expense-list-container');
-        const list = getSojuLogsForMonth(activeMonth);
+        let list = getSojuLogsForMonth(activeMonth);
+
+        if (activeCategoryFilter !== 'all') {
+          list = list.filter(l => (l.category || 'etc') === activeCategoryFilter);
+        }
 
         document.getElementById('expense-count-label').textContent = `${list.length}회`;
 
         if (list.length === 0) {
+          const isFiltered = activeCategoryFilter !== 'all';
           container.innerHTML = `
             <div class="bg-white rounded-3xl p-7 text-center border border-slate-100 shadow-[0_2px_10px_rgba(15,23,42,0.03)]">
               <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center mb-3 text-xl">
                 🍶
               </div>
-              <p class="text-sm font-bold text-[#191F28]">${formatMonthLabel(activeMonth)}에 마신 소주가 없어요</p>
-              <p class="text-xs text-slate-500 mt-1">위 버튼을 눌러 1병씩 바로 차감할 수 있고,<br/>안 마신 병 수는 다음 달로 자동 이월됩니다.</p>
+              <p class="text-sm font-bold text-[#191F28]">${isFiltered ? '해당 안주로 마신 기록이 없어요' : `${formatMonthLabel(activeMonth)}에 마신 소주가 없어요`}</p>
+              <p class="text-xs text-slate-500 mt-1">안주와 함께 소주 음주를 기록하면 바로 차감되고,<br/>안 마신 병 수는 다음 달로 자동 이월됩니다.</p>
             </div>
           `;
           return;
@@ -1586,16 +1613,19 @@
           const dayTotal = Math.round(items.reduce((s, i) => s + (Number(i.bottles) || 0), 0) * 10) / 10;
 
           const rowsHtml = items.map(item => {
-            const safeMemo = escapeHtml(item.memo || `소주 ${formatBottles(item.bottles)}`);
+            const anju = ANJU_CATEGORIES.find(c => c.id === item.category) || null;
+            const iconEmoji = anju ? anju.emoji : '🍶';
+            const catLabel = anju ? anju.label : '소주';
+            const safeMemo = escapeHtml(item.memo || (anju ? `${anju.label}에 소주` : `소주 ${formatBottles(item.bottles)}`));
             return `
               <button type="button" data-edit-soju="${item.id}" class="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 active:bg-slate-100 transition text-left">
                 <div class="flex items-center gap-3 min-w-0">
                   <div class="w-9 h-9 rounded-2xl bg-emerald-50 flex items-center justify-center text-base flex-shrink-0">
-                    🍶
+                    ${iconEmoji}
                   </div>
                   <div class="min-w-0">
                     <div class="text-sm font-semibold text-[#191F28] truncate">${safeMemo}</div>
-                    <div class="text-[11px] text-slate-400">${item.by ? `${escapeHtml(item.by)} 기록 · ` : ''}눌러서 수정 또는 삭제</div>
+                    <div class="text-[11px] text-slate-400">${catLabel}${item.by ? ` · ${escapeHtml(item.by)}` : ''}</div>
                   </div>
                 </div>
                 <div class="text-sm font-bold text-emerald-700 tabular-nums flex-shrink-0">
@@ -1698,8 +1728,8 @@
           });
         }
 
-        // Toggle Category Card vs Soju Summary Card
-        document.getElementById('analytics-cat-card').classList.toggle('hidden', isSoju);
+        // Show Soju Summary Card in Soju mode, and Category Breakdown Card in BOTH modes
+        document.getElementById('analytics-cat-card').classList.remove('hidden');
         document.getElementById('analytics-soju-card').classList.toggle('hidden', !isSoju);
 
         if (isSoju) {
@@ -1710,77 +1740,86 @@
           document.getElementById('soju-stat-sessions').textContent = `${logs.length}회`;
           document.getElementById('soju-stat-total').textContent = formatBottles(totalBottles);
           document.getElementById('soju-stat-avg').textContent = formatBottles(avgBottles);
+        }
+
+        document.getElementById('analytics-cat-title').textContent = isSoju
+          ? `${formatMonthLabel(activeMonth)} 안주 종류별 음주량`
+          : `${formatMonthLabel(activeMonth)} 간식 종류별 지출`;
+
+        const catItems = isSoju ? getSojuLogsForMonth(activeMonth) : getExpensesForMonth(activeMonth);
+        const catMetaList = isSoju ? ANJU_CATEGORIES : CATEGORIES;
+        const totalCatVal = catItems.reduce((s, e) => s + (Number(isSoju ? e.bottles : e.amount) || 0), 0);
+
+        const emptyEl = document.getElementById('analytics-cat-empty');
+        const contentEl = document.getElementById('analytics-cat-content');
+        emptyEl.textContent = isSoju ? '이 달에 기록된 음주 내역이 없습니다.' : '이 달에 기록된 지출이 없습니다.';
+
+        if (totalCatVal === 0) {
+          emptyEl.classList.remove('hidden');
+          contentEl.classList.add('hidden');
         } else {
-          document.getElementById('analytics-cat-title').textContent = `${formatMonthLabel(activeMonth)} 간식 종류별 지출`;
-          const monthExpenses = getExpensesForMonth(activeMonth);
-          const totalSpent = monthExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+          emptyEl.classList.add('hidden');
+          contentEl.classList.remove('hidden');
 
-          const emptyEl = document.getElementById('analytics-cat-empty');
-          const contentEl = document.getElementById('analytics-cat-content');
+          const byCat = {};
+          catItems.forEach(e => {
+            const key = e.category || 'etc';
+            byCat[key] = (byCat[key] || 0) + (Number(isSoju ? e.bottles : e.amount) || 0);
+          });
 
-          if (totalSpent === 0) {
-            emptyEl.classList.remove('hidden');
-            contentEl.classList.add('hidden');
-          } else {
-            emptyEl.classList.add('hidden');
-            contentEl.classList.remove('hidden');
+          const sortedCats = Object.keys(byCat)
+            .map(id => {
+              const meta = catMetaList.find(c => c.id === id) || catMetaList[catMetaList.length - 1];
+              const val = isSoju ? Math.round(byCat[id] * 10) / 10 : Math.round(byCat[id]);
+              return { ...meta, amount: val, pct: Math.round((byCat[id] / totalCatVal) * 100) };
+            })
+            .sort((a, b) => b.amount - a.amount);
 
-            const byCat = {};
-            monthExpenses.forEach(e => {
-              byCat[e.category] = (byCat[e.category] || 0) + (Number(e.amount) || 0);
-            });
+          const ctxCat = document.getElementById('chart-category').getContext('2d');
+          if (categoryChartInstance) {
+            categoryChartInstance.destroy();
+          }
 
-            const sortedCats = Object.keys(byCat)
-              .map(id => {
-                const meta = CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length - 1];
-                return { ...meta, amount: byCat[id], pct: Math.round((byCat[id] / totalSpent) * 100) };
-              })
-              .sort((a, b) => b.amount - a.amount);
+          const fmtCatVal = v => isSoju ? formatBottles(v) : formatWon(v);
 
-            const ctxCat = document.getElementById('chart-category').getContext('2d');
-            if (categoryChartInstance) {
-              categoryChartInstance.destroy();
-            }
-
-            if (window.Chart) {
-              categoryChartInstance = new Chart(ctxCat, {
-                type: 'doughnut',
-                data: {
-                  labels: sortedCats.map(c => c.label),
-                  datasets: [{
-                    data: sortedCats.map(c => c.amount),
-                    backgroundColor: sortedCats.map(c => c.color),
-                    borderWidth: 2,
-                    borderColor: '#FFFFFF'
-                  }]
-                },
-                options: {
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  cutout: '64%',
-                  plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                      callbacks: {
-                        label: ctx => `${ctx.label}: ${formatWon(ctx.raw)}`
-                      }
+          if (window.Chart) {
+            categoryChartInstance = new Chart(ctxCat, {
+              type: 'doughnut',
+              data: {
+                labels: sortedCats.map(c => c.label),
+                datasets: [{
+                  data: sortedCats.map(c => c.amount),
+                  backgroundColor: sortedCats.map(c => c.color),
+                  borderWidth: 2,
+                  borderColor: '#FFFFFF'
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '64%',
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      label: ctx => `${ctx.label}: ${fmtCatVal(ctx.raw)}`
                     }
                   }
                 }
-              });
-            }
-
-            document.getElementById('analytics-cat-list').innerHTML = sortedCats.map(c => `
-              <div class="flex items-center justify-between text-xs py-1">
-                <div class="flex items-center gap-2">
-                  <span class="w-2.5 h-2.5 rounded-full" style="background:${c.color}"></span>
-                  <span class="font-semibold text-[#191F28]">${c.emoji} ${c.label}</span>
-                  <span class="text-slate-400">${c.pct}%</span>
-                </div>
-                <span class="font-bold text-[#191F28] tabular-nums">${formatWon(c.amount)}</span>
-              </div>
-            `).join('');
+              }
+            });
           }
+
+          document.getElementById('analytics-cat-list').innerHTML = sortedCats.map(c => `
+            <div class="flex items-center justify-between text-xs py-1">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full" style="background:${c.color}"></span>
+                <span class="font-semibold text-[#191F28]">${c.emoji} ${c.label}</span>
+                <span class="text-slate-400">${c.pct}%</span>
+              </div>
+              <span class="font-bold text-[#191F28] tabular-nums">${fmtCatVal(c.amount)}</span>
+            </div>
+          `).join('');
         }
 
         // Rollover Ledger Table
@@ -1976,6 +2015,23 @@
       }
 
       // Soju Modal Controls
+      function renderModalAnjuCategories() {
+        const grid = document.getElementById('modal-anju-grid');
+        grid.innerHTML = ANJU_CATEGORIES.map(c => {
+          const active = c.id === selectedModalAnju;
+          return `
+            <button type="button" data-modal-anju="${c.id}" class="py-2 px-1 rounded-xl border text-center transition ${
+              active
+                ? 'bg-emerald-50 border-emerald-600 text-emerald-700 font-bold'
+                : 'bg-slate-50 border-slate-200 text-slate-600 font-medium hover:bg-slate-100'
+            }">
+              <div class="text-base leading-none mb-1">${c.emoji}</div>
+              <div class="text-[11px]">${c.label}</div>
+            </button>
+          `;
+        }).join('');
+      }
+
       function openSojuModal(logId = null) {
         const modal = document.getElementById('soju-modal');
         const idInput = document.getElementById('soju-log-id');
@@ -1993,17 +2049,20 @@
           bottlesInput.value = item.bottles;
           memoInput.value = item.memo || '';
           dateInput.value = item.date;
+          selectedModalAnju = item.category || 'etc';
           deleteBtn.classList.remove('hidden');
         } else {
-          titleEl.textContent = '소주 음주 기록';
+          titleEl.textContent = '소주 음주 기록하기';
           idInput.value = '';
           bottlesInput.value = '1';
           memoInput.value = '';
           const todayMonth = getTodayMonthKey();
           dateInput.value = activeMonth === todayMonth ? getTodayDateString() : `${activeMonth}-01`;
+          selectedModalAnju = 'chicken';
           deleteBtn.classList.add('hidden');
         }
 
+        renderModalAnjuCategories();
         modal.classList.remove('hidden');
       }
 
@@ -2025,6 +2084,7 @@
           bottles: 1,
           memo: '소주 1병',
           date,
+          category: 'etc',
           by: syncConfig.nickname || '',
           createdAt: Date.now()
         });
@@ -2150,12 +2210,19 @@
         });
       });
 
-      // Delegated clicks for modal categories
+      // Delegated clicks for modal categories (Snack & Anju)
       document.getElementById('modal-category-grid').addEventListener('click', e => {
         const btn = e.target.closest('[data-modal-cat]');
         if (!btn) return;
         selectedModalCategory = btn.dataset.modalCat;
         renderModalCategories();
+      });
+
+      document.getElementById('modal-anju-grid').addEventListener('click', e => {
+        const btn = e.target.closest('[data-modal-anju]');
+        if (!btn) return;
+        selectedModalAnju = btn.dataset.modalAnju;
+        renderModalAnjuCategories();
       });
 
       // Snack Expense Form Submit
@@ -2238,18 +2305,20 @@
           state.sojuSettings.startMonth = logMonth;
         }
 
+        const anjuMeta = ANJU_CATEGORIES.find(c => c.id === selectedModalAnju);
         if (id) {
           const idx = state.sojuLogs.findIndex(item => item.id === id);
           if (idx !== -1) {
-            state.sojuLogs[idx] = { ...state.sojuLogs[idx], bottles, memo, date };
+            state.sojuLogs[idx] = { ...state.sojuLogs[idx], bottles, memo, date, category: selectedModalAnju };
           }
           showToast('소주 기록이 수정되었습니다');
         } else {
           state.sojuLogs.push({
             id: `soju-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
             bottles,
-            memo: memo || `소주 ${formatBottles(bottles)}`,
+            memo: memo || (anjuMeta ? `${anjuMeta.label}에 소주` : `소주 ${formatBottles(bottles)}`),
             date,
+            category: selectedModalAnju,
             by: syncConfig.nickname || '',
             createdAt: Date.now()
           });
