@@ -1,4 +1,4 @@
-const CACHE_NAME = 'snack-soju-pwa-v5';
+const CACHE_NAME = 'snack-soju-pwa-v6';
 const CORE_ASSETS = [
   './',
   './index.html',
